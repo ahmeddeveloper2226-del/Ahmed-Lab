@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Forecast Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;700&family=Bebas+Neue&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+<style>
+:root {
+  --bg:#03040a; --surface:#080c18; --card:#0b0f1e;
+  --a1:#7c3aff; --a2:#06b6d4; --a3:#f0abfc; --a4:#34d399; --a5:#fb923c;
+  --text:#f1f5f9; --muted:#64748b;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'JetBrains Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+ 
+/* BG */
+.bg-canvas{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;}
+.orb{position:absolute;border-radius:50%;filter:blur(90px);opacity:0.2;animation:drift 18s ease-in-out infinite alternate;}
+.o1{width:700px;height:700px;background:radial-gradient(circle,#7c3aff,transparent 70%);top:-20%;left:-15%;}
+.o2{width:500px;height:500px;background:radial-gradient(circle,#06b6d4,transparent 70%);bottom:-10%;right:-10%;animation-delay:-6s;}
+.o3{width:400px;height:400px;background:radial-gradient(circle,#f0abfc,transparent 70%);top:40%;left:55%;animation-delay:-11s;}
+@keyframes drift{0%{transform:translate(0,0) scale(1);}50%{transform:translate(25px,-20px) scale(1.05);}100%{transform:translate(-10px,35px) scale(0.95);}}
+.scanlines{position:fixed;inset:0;z-index:1;pointer-events:none;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.035) 2px,rgba(0,0,0,0.035) 4px);}
+.grain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0.025;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:150px;}
+ 
+/* LAYOUT */
+.shell{position:relative;z-index:10;display:grid;grid-template-rows:auto 1fr;min-height:100vh;}
+ 
+/* NAV */
+nav{display:flex;align-items:center;justify-content:space-between;padding:16px 36px;background:rgba(8,12,24,0.88);border-bottom:1px solid rgba(124,58,255,0.15);backdrop-filter:blur(24px);position:sticky;top:0;z-index:50;}
+.nav-brand{display:flex;align-items:center;gap:12px;}
+.nav-hex{width:36px;height:36px;position:relative;display:flex;align-items:center;justify-content:center;}
+.nav-hex svg{position:absolute;inset:0;width:100%;height:100%;}
+.nav-hex-inner{position:relative;z-index:1;font-size:15px;}
+.nav-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;background:linear-gradient(90deg,var(--a1),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.nav-right{display:flex;align-items:center;gap:14px;}
+.user-pill{display:flex;align-items:center;gap:8px;padding:6px 14px;background:rgba(124,58,255,0.08);border:1px solid rgba(124,58,255,0.2);border-radius:20px;font-size:11px;color:var(--a3);letter-spacing:0.05em;}
+.user-dot{width:5px;height:5px;border-radius:50%;background:var(--a4);box-shadow:0 0 6px var(--a4);animation:pdot 2s ease-in-out infinite;}
+@keyframes pdot{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(.8);}}
+.btn-logout{padding:6px 14px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:8px;color:#f87171;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:all .2s;}
+.btn-logout:hover{background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);}
+ 
+/* MAIN */
+main{padding:36px 36px 60px;display:flex;flex-direction:column;gap:28px;}
+ 
+/* METRICS BAR */
+.metrics-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+.metric-card{background:linear-gradient(160deg,rgba(11,15,30,.97),rgba(8,12,24,.99));border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:18px 20px;position:relative;overflow:hidden;transition:border-color .25s,transform .2s;animation:fadeUp .6s cubic-bezier(.34,1.56,.64,1) both;}
+.metric-card:hover{border-color:rgba(124,58,255,.3);transform:translateY(-2px);}
+.metric-card::before{content:'';position:absolute;top:-1px;left:-1px;width:18px;height:18px;border-top:2px solid var(--a1);border-left:2px solid var(--a1);border-radius:14px 0 0 0;}
+.metric-card:nth-child(1){animation-delay:.05s;} .metric-card:nth-child(2){animation-delay:.1s;} .metric-card:nth-child(3){animation-delay:.15s;} .metric-card:nth-child(4){animation-delay:.2s;}
+.metric-label{font-size:8px;color:var(--muted);letter-spacing:.2em;text-transform:uppercase;margin-bottom:8px;}
+.metric-val{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:1px;line-height:1;background:linear-gradient(90deg,var(--a1),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.metric-sub{font-size:9px;color:var(--muted);margin-top:5px;}
+.metric-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:20px;font-size:8px;margin-top:6px;}
+.mb-good{background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.25);color:var(--a4);}
+.mb-none{background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.2);color:var(--muted);}
+ 
+/* PANELS GRID */
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+@media(max-width:900px){.panels,.bottom-row,.metrics-bar{grid-template-columns:1fr 1fr;}}
+@media(max-width:600px){.panels,.bottom-row,.metrics-bar{grid-template-columns:1fr;}}
+ 
+/* PANEL */
+.panel{background:linear-gradient(160deg,rgba(11,15,30,.97),rgba(8,12,24,.99));border:1px solid rgba(124,58,255,.15);border-radius:18px;overflow:hidden;animation:fadeUp .6s cubic-bezier(.34,1.56,.64,1) both;position:relative;}
+.panel:nth-child(1){animation-delay:.25s;} .panel:nth-child(2){animation-delay:.32s;}
+.panel::before,.panel::after{content:'';position:absolute;width:18px;height:18px;pointer-events:none;}
+.panel::before{top:-1px;left:-1px;border-top:2px solid var(--a1);border-left:2px solid var(--a1);border-radius:18px 0 0 0;}
+.panel::after{top:-1px;right:-1px;border-top:2px solid var(--a2);border-right:2px solid var(--a2);border-radius:0 18px 0 0;}
+.panel-head{display:flex;align-items:center;gap:12px;padding:20px 24px 16px;border-bottom:1px solid rgba(255,255,255,.04);}
+.panel-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+.pi-train{background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.25);}
+.pi-forecast{background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.25);}
+.panel-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1.5px;background:linear-gradient(90deg,var(--text),rgba(241,245,249,.6));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.panel-badge{font-size:8px;padding:2px 8px;border-radius:20px;letter-spacing:.15em;text-transform:uppercase;margin-left:auto;}
+.pb-cyan{background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.25);color:var(--a2);}
+.pb-green{background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.25);color:var(--a4);}
+.panel-body{padding:22px 24px 26px;display:flex;flex-direction:column;gap:14px;}
+ 
+/* DROP ZONE */
+.drop-zone{border:2px dashed rgba(124,58,255,.25);border-radius:12px;padding:26px 20px;text-align:center;cursor:pointer;transition:all .25s;position:relative;background:rgba(124,58,255,.03);}
+.drop-zone:hover,.drop-zone.drag-over{border-color:rgba(124,58,255,.6);background:rgba(124,58,255,.07);}
+.drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.drop-icon{font-size:26px;margin-bottom:7px;}
+.drop-text{font-size:11px;color:var(--muted);}
+.drop-text span{color:var(--a2);text-decoration:underline dotted;}
+.drop-fname{font-size:10px;color:var(--a4);margin-top:5px;}
+/* MONTHS SELECTOR */
+.months-selector{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.month-opt{position:relative;}
+.month-opt input[type=radio]{position:absolute;opacity:0;width:0;height:0;}
+.month-opt label{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 6px;border:1px solid rgba(52,211,153,.2);border-radius:10px;cursor:pointer;transition:all .2s;background:rgba(52,211,153,.03);gap:3px;}
+.month-opt label:hover{border-color:rgba(52,211,153,.45);background:rgba(52,211,153,.07);}
+.month-opt input:checked + label{border-color:var(--a4);background:rgba(52,211,153,.12);box-shadow:0 0 14px rgba(52,211,153,.15);}
+.month-opt-num{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;color:var(--a4);line-height:1;}
+.month-opt-lbl{font-size:8px;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;}
+.months-label{font-size:9px;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;margin-bottom:4px;}
+ 
+ 
+/* ACTION BUTTON */
+.btn-action{width:100%;padding:13px;border:none;border-radius:11px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:500;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s;}
+.btn-train{background:linear-gradient(135deg,var(--a2),#0891b2);color:#fff;box-shadow:0 6px 24px rgba(6,182,212,.3);}
+.btn-train:hover{transform:translateY(-2px);box-shadow:0 10px 32px rgba(6,182,212,.45);}
+.btn-forecast{background:linear-gradient(135deg,var(--a4),#059669);color:#022c22;box-shadow:0 6px 24px rgba(52,211,153,.3);}
+.btn-forecast:hover{transform:translateY(-2px);box-shadow:0 10px 32px rgba(52,211,153,.45);}
+.btn-action:disabled{opacity:.45;cursor:not-allowed;transform:none !important;}
+.btn-action::before{content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent);transform:skewX(-20deg);animation:shimmer 2.5s ease-in-out infinite;}
+@keyframes shimmer{0%,100%{left:-100%;}50%{left:150%;}}
+ 
+/* STATUS BOX */
+.status-box{border-radius:10px;padding:11px 14px;font-size:11px;line-height:1.7;display:flex;align-items:flex-start;gap:8px;transition:all .3s;}
+.sb-idle{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);color:var(--muted);}
+.sb-loading{background:rgba(6,182,212,.06);border:1px solid rgba(6,182,212,.2);color:var(--a2);}
+.sb-success{background:rgba(52,211,153,.06);border:1px solid rgba(52,211,153,.2);color:var(--a4);}
+.sb-error{background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.2);color:#f87171;}
+.sb-icon{font-size:14px;flex-shrink:0;margin-top:1px;}
+ 
+/* PROGRESS */
+.prog-wrap{height:3px;background:rgba(255,255,255,.05);border-radius:99px;overflow:hidden;}
+.prog-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--a1),var(--a2));border-radius:99px;}
+.prog-bar.run{animation:prog 1.4s ease-in-out infinite;}
+@keyframes prog{0%{width:0%;margin-left:0%;}50%{width:60%;margin-left:20%;}100%{width:0%;margin-left:100%;}}
+ 
+/* RESULT PANEL */
+.result-panel{background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.05);border-radius:10px;overflow:hidden;display:none;}
+.result-panel.on{display:block;}
+.result-head{padding:9px 14px;background:rgba(255,255,255,.02);border-bottom:1px solid rgba(255,255,255,.04);font-size:8px;color:var(--muted);letter-spacing:.2em;text-transform:uppercase;display:flex;align-items:center;justify-content:space-between;}
+.rh-dot{width:5px;height:5px;border-radius:50%;background:var(--a4);animation:pdot 2s ease-in-out infinite;}
+.result-body{padding:14px;}
+.res-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;}
+.res-item{padding:10px 12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.04);border-radius:8px;}
+.res-key{font-size:8px;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;margin-bottom:4px;}
+.res-val{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;background:linear-gradient(90deg,var(--a1),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+ 
+/* TABLE */
+.tbl-wrap{overflow-x:auto;border-radius:8px;border:1px solid rgba(255,255,255,.05);}
+table{width:100%;border-collapse:collapse;font-size:10px;}
+thead tr{background:rgba(124,58,255,.08);}
+th{padding:8px 12px;text-align:left;color:var(--a3);letter-spacing:.1em;text-transform:uppercase;font-size:8px;border-bottom:1px solid rgba(255,255,255,.06);}
+td{padding:8px 12px;color:var(--text);border-bottom:1px solid rgba(255,255,255,.03);}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(124,58,255,.04);}
+.btn-dl{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;cursor:pointer;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.25);color:var(--a4);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;transition:all .2s;margin-top:12px;}
+.btn-dl:hover{background:rgba(52,211,153,.18);}
+.btn-insights{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;cursor:pointer;background:rgba(240,171,252,.1);border:1px solid rgba(240,171,252,.25);color:var(--a3);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;transition:all .2s;margin-top:12px;margin-left:8px;}
+.btn-insights:hover{background:rgba(240,171,252,.18);}
+.btn-insights:disabled{opacity:.4; cursor:not-allowed;}
+.btn-insights:disabled:hover{background:rgba(240,171,252,.1);}
+ 
+/* BOTTOM ROW */
+.bottom-row{display:grid;grid-template-columns:1fr 1fr;gap:24px;animation:fadeUp .6s cubic-bezier(.34,1.56,.64,1) .38s both;}
+.sub-panel{background:linear-gradient(160deg,rgba(11,15,30,.97),rgba(8,12,24,.99));border-radius:18px;overflow:hidden;position:relative;}
+.sp-metrics{border:1px solid rgba(124,58,255,.15);}
+.sp-metrics::before{content:'';position:absolute;top:-1px;left:-1px;width:18px;height:18px;border-top:2px solid var(--a3);border-left:2px solid var(--a3);border-radius:18px 0 0 0;}
+.sp-danger{border:1px solid rgba(248,113,113,.12);}
+.sp-danger::before{content:'';position:absolute;top:-1px;left:-1px;width:18px;height:18px;border-top:2px solid #f87171;border-left:2px solid #f87171;border-radius:18px 0 0 0;}
+.btn-refresh{width:100%;padding:12px;border:none;border-radius:11px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;background:rgba(240,171,252,.08);border:1px solid rgba(240,171,252,.2);color:var(--a3);transition:all .2s;}
+.btn-refresh:hover{background:rgba(240,171,252,.14);}
+.btn-delete{width:100%;padding:12px;border:none;border-radius:11px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.18);color:#f87171;transition:all .2s;}
+.btn-delete:hover{background:rgba(248,113,113,.13);}
+ 
+/* MODELS LIST */
+.model-list{display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto;}
+.model-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid rgba(255,255,255,.06);border-radius:10px;background:rgba(255,255,255,.02);cursor:pointer;transition:all .2s;}
+.model-row:hover{border-color:rgba(52,211,153,.3);}
+.model-row.selected{border-color:var(--a4);background:rgba(52,211,153,.08);box-shadow:0 0 14px rgba(52,211,153,.12);}
+.model-row input[type=radio]{accent-color:var(--a4);}
+.model-info{flex:1;min-width:0;}
+.model-name{font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.model-meta{font-size:9px;color:var(--muted);margin-top:2px;}
+.model-del{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);color:#f87171;border-radius:7px;padding:5px 9px;font-size:10px;cursor:pointer;flex-shrink:0;}
+.model-del:hover{background:rgba(248,113,113,.18);}
+.model-name-input{width:100%;padding:9px 12px;border-radius:9px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.02);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:11px;}
+.model-name-input::placeholder{color:var(--muted);}
+/* Native <select> dropdown popups ignore the dark background/text color set
+   above and fall back to the OS/browser default (often white bg + white
+   text in a dark page) unless the <option> elements are styled directly. */
+select.model-name-input{color-scheme:dark;}
+select.model-name-input option{background:#0f1420;color:#e5e7eb;}
+/* PAST FORECASTS LIST */
+.hist-list{display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;}
+.hist-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid rgba(255,255,255,.06);border-radius:10px;background:rgba(255,255,255,.02);}
+.hist-info{flex:1;min-width:0;}
+.hist-title{font-size:11px;color:var(--text);}
+.hist-meta{font-size:9px;color:var(--muted);margin-top:2px;}
+.hist-view{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;background:rgba(240,171,252,.1);border:1px solid rgba(240,171,252,.25);color:var(--a3);font-size:9px;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;flex-shrink:0;}
+.hist-view:hover{background:rgba(240,171,252,.18);}
+.empty-note{font-size:11px;color:var(--muted);padding:10px 2px;}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(26px);}to{opacity:1;transform:translateY(0);}}
+.spin{display:inline-block;width:10px;height:10px;border:1.5px solid rgba(6,182,212,.3);border-top-color:var(--a2);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:4px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+ 
+<div class="bg-canvas">
+  <div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div>
+  <svg id="nsvg" style="position:absolute;inset:0;width:100%;height:100%;opacity:.1;" viewBox="0 0 1400 800" preserveAspectRatio="xMidYMid slice"></svg>
+</div>
+<div class="scanlines"></div><div class="grain"></div>
+ 
+<div class="shell">
+  <!-- NAV -->
+  <nav>
+    <div class="nav-brand">
+      <div class="nav-hex">
+        <svg viewBox="0 0 48 48" fill="none"><polygon points="24,2 44,13 44,35 24,46 4,35 4,13" fill="none" stroke="url(#hg)" stroke-width="1.5"/><polygon points="24,9 38,17 38,31 24,39 10,31 10,17" fill="rgba(124,58,255,0.1)" stroke="rgba(124,58,255,0.3)" stroke-width="1"/><defs><linearGradient id="hg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#7c3aff"/><stop offset="100%" stop-color="#06b6d4"/></linearGradient></defs></svg>
+        <div class="nav-hex-inner">⚡</div>
+      </div>
+      <div class="nav-title">Forecast Dashboard</div>
+    </div>
+    <div class="nav-right">
+      <a class="btn-logout" style="background:rgba(124,58,255,.08);border-color:rgba(124,58,255,.2);color:var(--a3);text-decoration:none;" href="/about">About</a>
+      <a class="btn-logout" style="background:rgba(6,182,212,.08);border-color:rgba(6,182,212,.2);color:var(--a2);text-decoration:none;" href="/guide">User Guide</a>
+      <div class="user-pill"><div class="user-dot"></div><span id="nav-email">loading...</span></div>
+      <button class="btn-logout" onclick="logout()">Sign Out</button>
+    </div>
+  </nav>
+ 
+  <main>
+    <!-- METRICS BAR -->
+    <div class="metrics-bar">
+      <div class="metric-card">
+        <div class="metric-label">Model Status</div>
+        <div class="metric-val" id="m-status">—</div>
+        <div id="m-badge" class="metric-badge mb-none">No Model</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Val RMSE</div>
+        <div class="metric-val" id="m-val">—</div>
+        <div class="metric-sub">validation error</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Baseline RMSE</div>
+        <div class="metric-val" id="m-base">—</div>
+        <div class="metric-sub">naive reference</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Forecast Accuracy</div>
+        <div class="metric-val" id="m-acc">—</div>
+        <div class="metric-sub">vs baseline</div>
+      </div>
+    </div>
+
+    <!-- BILLING / SUBSCRIPTION -->
+    <div class="panel" id="billing-panel" style="margin-bottom:22px;">
+      <div style="padding:20px 24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h3 style="margin:0; font-size:14px; letter-spacing:.08em; text-transform:uppercase; opacity:.85;">Subscription</h3>
+        </div>
+        <div class="status-box sb-idle" id="st-billing" style="margin-bottom:16px;">
+          <span class="sb-icon">💳</span><span>Loading subscription status...</span>
+        </div>
+        <div id="plans-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:14px;"></div>
+
+        <div style="border-top:1px solid rgba(255,255,255,.08); margin-top:20px; padding-top:16px;">
+          <h3 style="margin:0 0 4px; font-size:12px; letter-spacing:.08em; text-transform:uppercase; opacity:.85;">🌍 Country &amp; Currency</h3>
+          <div style="font-size:10.5px; opacity:.6; margin-bottom:12px;">Sets which currency plan prices are shown in, and — if you subscribe — which currency you're actually charged in at checkout.</div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <select id="country-tab-select" class="model-name-input" style="width:auto; min-width:240px; flex:1;">
+              <option value="">Loading countries...</option>
+            </select>
+            <button class="btn-refresh" style="width:auto; padding:9px 16px;" onclick="saveMyCountry()">Save</button>
+          </div>
+          <div class="status-box sb-idle" id="st-country" style="display:none; margin-top:10px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- YOUR MODELS -->
+    <div class="panel" id="models-panel" style="margin-bottom:22px;">
+      <div class="panel-head">
+        <div class="panel-icon" style="background:rgba(240,171,252,.1);border:1px solid rgba(240,171,252,.25);">🧠</div>
+        <div class="panel-title">Your Models</div>
+        <span class="panel-badge" style="background:rgba(240,171,252,.1);border:1px solid rgba(240,171,252,.25);color:var(--a3);">GET /models</span>
+      </div>
+      <div class="panel-body">
+        <div id="models-usage" class="metric-sub" style="margin-bottom:2px;">—</div>
+        <div class="model-list" id="models-list"><div class="empty-note">Loading your saved models...</div></div>
+      </div>
+    </div>
+
+    <!-- MAIN PANELS -->
+    <div class="panels">
+      <!-- TRAIN -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-icon pi-train">🏋️</div>
+          <div class="panel-title">Train Model</div>
+          <span class="panel-badge pb-cyan">POST /train</span>
+        </div>
+        <div class="panel-body">
+          <div class="drop-zone" id="dz-train" ondragover="onDrag(event,'dz-train')" ondragleave="offDrag('dz-train')" ondrop="onDrop(event,'train')">
+            <input type="file" accept=".csv" id="f-train" onchange="onFile('train')"/>
+            <div class="drop-icon">📂</div>
+            <div class="drop-text">Drop CSV here or <span>browse</span></div>
+            <div class="drop-fname" id="fn-train"></div>
+          </div>
+          <div class="months-label">Which column should the model learn to predict?</div>
+          <select id="train-target-select" class="model-name-input" style="margin-bottom:10px;" onchange="onTrainTargetColChange()" disabled>
+            <option value="">Upload a CSV first…</option>
+          </select>
+          <div class="drop-fname" id="train-target-hint" style="margin-top:-8px;margin-bottom:10px;"></div>
+          <input type="text" class="model-name-input" id="in-model-name" placeholder="Model name (optional) — e.g. Store 12 monthly sales" maxlength="80"/>
+          <div class="prog-wrap"><div class="prog-bar" id="pb-train"></div></div>
+          <button class="btn-action btn-train" id="btn-train" onclick="doTrain()" disabled>Train Model</button>
+          <div class="status-box sb-idle" id="st-train"><span class="sb-icon">💡</span><span>Upload your full historical CSV to train the model.</span></div>
+          <div class="status-box sb-idle" id="st-models-quota" style="display:none;"></div>
+          <div class="result-panel" id="res-train">
+            <div class="result-head"><span>Training Metrics</span><div class="rh-dot"></div></div>
+            <div class="result-body">
+              <div class="res-grid">
+                <div class="res-item"><div class="res-key">Model</div><div class="res-val" id="r-model">—</div></div>
+                <div class="res-item"><div class="res-key">Train RMSE</div><div class="res-val" id="r-trmse">—</div></div>
+                <div class="res-item"><div class="res-key">Val RMSE</div><div class="res-val" id="r-vrmse">—</div></div>
+                <div class="res-item"><div class="res-key">Baseline</div><div class="res-val" id="r-brmse">—</div></div>
+                <div class="res-item"><div class="res-key">Best Lags</div><div class="res-val" id="r-lags">—</div></div>
+                <div class="res-item"><div class="res-key">Best Roll</div><div class="res-val" id="r-roll">—</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+ 
+      <!-- FORECAST -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-icon pi-forecast">🚀</div>
+          <div class="panel-title">Get Forecast</div>
+          <span class="panel-badge pb-green">POST /forecast</span>
+        </div>
+        <div class="panel-body">
+          <div class="drop-zone" id="dz-fc" ondragover="onDrag(event,'dz-fc')" ondragleave="offDrag('dz-fc')" ondrop="onDrop(event,'forecast')">
+            <input type="file" accept=".csv" id="f-fc" onchange="onFile('forecast')"/>
+            <div class="drop-icon">📈</div>
+            <div class="drop-text">Drop CSV here or <span>browse</span></div>
+            <div class="drop-fname" id="fn-fc"></div>
+          </div>
+          <div class="months-label">Which column do you want to forecast?</div>
+          <select id="fc-target-select" class="model-name-input" style="margin-bottom:14px;" onchange="onTargetColChange()" disabled>
+            <option value="">Upload a CSV first…</option>
+          </select>
+          <div class="drop-fname" id="fc-target-hint" style="margin-top:-8px;margin-bottom:10px;"></div>
+          <div class="months-label">Forecast Horizon</div>
+          <div class="months-selector" id="months-selector">
+            <div class="month-opt">
+              <input type="radio" name="fc-months" id="m3" value="3" checked/>
+              <label for="m3"><span class="month-opt-num">3</span><span class="month-opt-lbl">months</span></label>
+            </div>
+          </div>
+          <div class="prog-wrap"><div class="prog-bar" id="pb-fc"></div></div>
+          <button class="btn-action btn-forecast" id="btn-fc" onclick="doForecast()" disabled>Run Forecast</button>
+          <div class="status-box sb-idle" id="st-fc"><span class="sb-icon">💡</span><span>Select a model above, upload a CSV, choose which column to forecast, and pick a forecast horizon.</span></div>
+          <div class="result-panel" id="res-fc">
+            <div class="result-head"><span>Forecast Results</span><div class="rh-dot"></div></div>
+            <div class="result-body">
+              <div class="tbl-wrap"><table id="fc-table"><thead></thead><tbody></tbody></table></div>
+              <button class="btn-dl" onclick="downloadCSV()">⬇ Download CSV</button>
+              <button class="btn-insights" id="btn-insights" onclick="viewInsights()" disabled>📊 View Insights</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+ 
+    <!-- PAST FORECASTS -->
+    <div class="panel" id="history-panel" style="margin-top:4px;">
+      <div class="panel-head">
+        <div class="panel-icon" style="background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.25);">🕘</div>
+        <div class="panel-title">Past Forecasts</div>
+        <span class="panel-badge pb-green">GET /forecasts</span>
+        <button class="btn-refresh" style="width:auto;padding:6px 12px;margin-left:8px;" onclick="fetchForecastHistory()">↻ Refresh</button>
+        <button class="btn-refresh" style="width:auto;padding:6px 12px;margin-left:6px;opacity:.75;" onclick="runFirestoreDiagnostic()" title="If forecasts never show up here, run this to see the exact reason why">🔧 Diagnose</button>
+      </div>
+      <div class="panel-body">
+        <div class="status-box sb-idle" id="st-diagnostic" style="display:none;"></div>
+        <div class="hist-list" id="hist-list"><div class="empty-note">Loading your past forecasts...</div></div>
+      </div>
+    </div>
+  </main>
+</div>
+ 
+<script>
+// FastAPI validation errors (422) return `detail` as a LIST of error
+// objects, not a plain string — e.g. [{"loc":[...], "msg":"...", ...}].
+// A naive `d.detail` renders as the useless "[object Object]". This
+// normalizes any shape of `detail` into one readable string.
+function apiErrorMessage(d, fallback) {
+  const detail = d && d.detail;
+  if (!detail) return fallback;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail.map(e => {
+      if (typeof e === "string") return e;
+      const field = Array.isArray(e.loc) ? e.loc[e.loc.length - 1] : "";
+      return field ? `${field}: ${e.msg}` : (e.msg || JSON.stringify(e));
+    }).join("; ");
+  }
+  return JSON.stringify(detail);
+}
+
+// Auto-detects local vs deployed — same file works either way.
+const API = new URLSearchParams(location.search).get("api") || location.origin;
+ 
+// ── Firebase init ──────────────────────────────────────────────────────────
+firebase.initializeApp({
+  apiKey:     "AIzaSyBTi0hycT_nCgThOoLDLDfXhCuLWeKcPMU",
+  authDomain: "sales-forecasting-75f26.firebaseapp.com"
+});
+const auth = firebase.auth();
+ 
+// ── Dev-mode support ─────────────────────────────────────────────────────
+// If a developer password was saved (via the "Continue as developer" link
+// on the login page), every API call uses X-Dev-Password instead of a
+// Firebase token, and the Firebase auth guard below is skipped entirely.
+function isDevMode() {
+  return !!localStorage.getItem("devPassword");
+}
+function currentUserLabel() {
+  return isDevMode() ? "dev@local.test" : (auth.currentUser?.email || "unknown");
+}
+
+// ── Auth guard ─────────────────────────────────────────────────────────────
+// _authHandled: يمنع onAuthStateChanged يتنادي أكتر من مرة
+let _authHandled = false;
+function loadDashboardData() {
+  fetchModels();
+  fetchBillingStatus();
+  fetchForecastHistory();
+  loadCountryTabOptions();
+}
+if (isDevMode()) {
+  document.getElementById("nav-email").textContent = currentUserLabel() + " (dev mode)";
+  loadDashboardData();
+} else {
+  auth.onAuthStateChanged(user => {
+    if (!user) {
+      window.location.replace("/");
+      return;
+    }
+    if (_authHandled) return; // Firebase بيعمل re-fire أحياناً — نتجاهله
+    _authHandled = true;
+    document.getElementById("nav-email").textContent = user.email;
+    loadDashboardData();
+  });
+}
+ 
+// ── Fetch with timeout (10 seconds) ────────────────────────────────────────
+async function fetchWithTimeout(url, options = {}, ms = 10000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timer);
+    return res;
+  } catch (e) {
+    clearTimeout(timer);
+    if (e.name === 'AbortError') throw new Error('Request timed out — server may be busy. Try again.');
+    throw e;
+  }
+}
+ 
+// ── KEY: builds the right auth header for every request — a fresh Firebase
+// token normally, or the saved dev password in dev mode. ───────────────────
+async function getAuthHeaders() {
+  if (isDevMode()) {
+    return { "X-Dev-Password": localStorage.getItem("devPassword") };
+  }
+  const user = auth.currentUser;
+  if (!user) throw new Error("Not authenticated — please login first");
+  const token = await user.getIdToken(false); // false = use cached if still valid
+  return { Authorization: `Bearer ${token}` };
+}
+ 
+async function logout() {
+  localStorage.removeItem("devPassword");
+  if (!isDevMode()) await auth.signOut();
+  window.location.replace("/");
+}
+
+// ── Billing / Subscription ──────────────────────────────────────────────────
+let myCountry = null;
+let myCurrency = null;
+let myInsightsEnabled = false;
+
+async function fetchBillingStatus() {
+  const box = document.getElementById('st-billing');
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetchWithTimeout(`${API}/billing/status`, { headers }, 10000);
+    const d = await res.json();
+    if (!res.ok) throw new Error(apiErrorMessage(d, res.statusText));
+
+    if (d.plan === "dev-bypass") {
+      box.className = "status-box sb-idle";
+      box.innerHTML = `<span class="sb-icon">🔧</span><span>Developer mode — subscription checks are skipped for this account.</span>`;
+    } else if (d.status === "active") {
+      box.className = "status-box sb-idle";
+      const u = d.usage || {};
+      const trialTag = d.is_trial ? ' <span style="opacity:.7">(free trial)</span>' : '';
+      box.innerHTML = `<span class="sb-icon">✅</span><span>Plan: <strong>${d.plan}</strong>${trialTag} · Renews: <strong>${new Date(d.expires_at).toLocaleDateString()}</strong><br>
+        <small style="opacity:.7">Trainings used: ${u.trainings_used ?? '—'}/${u.trainings_limit ?? '—'} · Forecast points used: ${u.forecast_points_used ?? '—'}/${u.forecast_points_limit ?? '—'} · Models saved: ${u.models_used ?? '—'}/${u.models_limit ?? '—'}</small></span>`;
+    } else {
+      box.className = "status-box sb-idle";
+      box.innerHTML = `<span class="sb-icon">⚠️</span><span>No active subscription — choose a plan below to unlock training and forecasting.</span>`;
+    }
+    if (d.usage) {
+      document.getElementById('models-usage').textContent =
+        `Saved models: ${d.usage.models_used ?? 0}/${d.usage.models_limit ?? '—'}`;
+    } else {
+      document.getElementById('models-usage').textContent = '';
+    }
+
+    myCountry = d.country || null;
+    myCurrency = d.currency || null;
+    myInsightsEnabled = !!d.insights_enabled || d.plan === 'dev-bypass';
+    renderMonthsSelector(d.forecast_horizon_options || [3]);
+    applyInsightsGating();
+  } catch (e) {
+    box.className = "status-box sb-idle";
+    box.innerHTML = `<span class="sb-icon">❌</span><span>${e.message}</span>`;
+  }
+  renderPlans();
+}
+
+// ── Forecast horizon options (plan-dependent) ───────────────────────────────
+function renderMonthsSelector(options) {
+  const wrap = document.getElementById('months-selector');
+  wrap.innerHTML = options.map((m, i) => `
+    <div class="month-opt">
+      <input type="radio" name="fc-months" id="m${m}" value="${m}" ${i === 0 ? 'checked' : ''}/>
+      <label for="m${m}"><span class="month-opt-num">${m}</span><span class="month-opt-lbl">months</span></label>
+    </div>
+  `).join('');
+}
+
+// ── Insights access gating (Growth/Scale only) ──────────────────────────────
+function applyInsightsGating() {
+  const btn = document.getElementById('btn-insights');
+  if (btn) {
+    if (!myInsightsEnabled) {
+      btn.title = "Insights is a Growth/Scale feature — upgrade your plan to unlock it.";
+    } else {
+      btn.title = "";
+    }
+  }
+  fetchForecastHistory(); // re-render history rows with the current gating state
+  const sel = document.getElementById('country-tab-select');
+  if (sel && myCountry && _countryOptionsLoaded) sel.value = myCountry;
+}
+
+// ── Country & Currency tab ───────────────────────────────────────────────
+let _countryOptionsLoaded = false;
+async function loadCountryTabOptions() {
+  const sel = document.getElementById('country-tab-select');
+  try {
+    const res = await fetchWithTimeout(`${API}/currencies`, {}, 8000);
+    const d = await res.json();
+    sel.innerHTML = Object.entries(d.currencies || {}).map(([code, info]) =>
+      `<option value="${code}">${info.label} (${info.currency})</option>`
+    ).join('');
+    _countryOptionsLoaded = true;
+    if (myCountry) sel.value = myCountry;
+  } catch (e) {
+    sel.innerHTML = `<option value="OTHER">Other / International</option>`;
+  }
+}
+
+async function saveMyCountry() {
+  const sel = document.getElementById('country-tab-select');
+  const country = sel.value;
+  const box = document.getElementById('st-country');
+  box.style.display = 'flex';
+  box.className = 'status-box sb-idle';
+  box.innerHTML = `<span class="sb-icon"><span class="spin"></span></span><span>Saving...</span>`;
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetchWithTimeout(`${API}/profile/country`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ country }),
+    }, 8000);
+    const d = await res.json();
+    if (!res.ok) throw new Error(apiErrorMessage(d, res.statusText));
+    box.className = 'status-box sb-success';
+    box.innerHTML = `<span class="sb-icon">✅</span><span>Saved — prices now show in <strong>${d.currency}</strong>.</span>`;
+    await fetchBillingStatus(); // refresh prices/plan cards with the new currency
+  } catch (e) {
+    box.className = 'status-box sb-error';
+    box.innerHTML = `<span class="sb-icon">❌</span><span>${e.message}</span>`;
+  }
+}
+
+// Converts a plan's base EGP price into the signed-in user's display
+// currency (set at sign-up, see myCountry/myCurrency) — purely cosmetic;
+// actual billing always happens in EGP through the one Paymob integration.
+function formatPrice(priceEgp, plansResponse) {
+  const currencies = (plansResponse && plansResponse.currencies) || {};
+  const info = currencies[myCountry] || currencies['OTHER'] || { currency: 'EGP', rate_from_base: 1 };
+  const amount = Math.round(priceEgp * (info.rate_from_base ?? 1));
+  return `${amount.toLocaleString()} ${info.currency}`;
+}
+
+// Cached from the last /billing/plans call so the Plan Details modal can
+// render instantly without a second round-trip when a card is clicked.
+let _plansCache = null;
+
+async function renderPlans() {
+  const grid = document.getElementById('plans-grid');
+  grid.innerHTML = '<div style="opacity:.6; font-size:12px;">Loading plans...</div>';
+  try {
+    // Plan listing itself is public, but we send auth headers anyway (when
+    // we have them) so the server can tell us whether this account still
+    // has its free trial available.
+    let headers = {};
+    try { headers = await getAuthHeaders(); } catch (_) { /* not logged in — fine, trial_available just comes back null */ }
+
+    const res = await fetchWithTimeout(`${API}/billing/plans`, { headers }, 10000);
+    const d = await res.json();
+    if (!res.ok) throw new Error(apiErrorMessage(d, res.statusText));
+    _plansCache = d;
+
+    // Pricing → Select Plan → Plan Details → Subscribe → Payment.
+    // Every card links to the real, bookmarkable /plan-details route
+    // instead of opening a modal or calling the API directly — the plan
+    // id travels in the URL, so it can't get mixed up between plans.
+    grid.innerHTML = d.plans.map(p => `
+      <div style="position:relative; border:1px solid ${p.most_popular ? 'rgba(124,58,255,.6)' : 'rgba(124,58,255,.2)'}; border-radius:12px; padding:14px; background:rgba(255,255,255,.02);">
+        ${p.most_popular ? `<div style="position:absolute; top:-10px; right:12px; background:linear-gradient(90deg,var(--accent1,#7c3aff),var(--accent2,#06b6d4)); color:#fff; font-size:9px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:3px 8px; border-radius:20px;">Most Popular</div>` : ''}
+        <div style="font-size:12px; opacity:.7; text-transform:uppercase; letter-spacing:.06em;">${p.name}</div>
+        <div style="font-size:22px; font-weight:700; margin:6px 0;">${formatPrice(p.price_egp, d)}<span style="font-size:11px; opacity:.6;">/mo</span></div>
+        <div style="font-size:11px; opacity:.7; margin-bottom:10px;">Forecast up to ${p.max_forecast_months} months ahead${p.insights_enabled ? ' · Insights included' : ''}</div>
+        <a href="/plan-details?plan=${p.id}&mode=subscribe" class="btn-insights" style="width:100%; justify-content:center; margin:0 0 8px; text-decoration:none;">Subscribe</a>
+        ${d.trial_available === false
+          ? `<button class="btn-insights" style="width:100%; justify-content:center; margin:0; opacity:.5; cursor:not-allowed;" disabled title="You've already used your free trial">Trial used</button>`
+          : `<a href="/plan-details?plan=${p.id}&mode=trial" class="btn-insights" style="width:100%; justify-content:center; margin:0; text-decoration:none;">Start ${d.trial_duration_days}-day free trial</a>`
+        }
+      </div>
+    `).join('');
+
+    if (!d.paymob_configured) {
+      grid.innerHTML += `<div style="grid-column:1/-1; font-size:11px; opacity:.6; margin-top:6px;">
+        ⚠️ Payments aren't configured on the server yet (Paymob keys missing) — subscribing will show an error until that's set up. The free trial doesn't need Paymob and works either way.</div>`;
+    }
+  } catch (e) {
+    grid.innerHTML = `<div style="color:#f87171; font-size:12px;">${e.message}</div>`;
+  }
+}
+
+ 
+// ── File handling ──────────────────────────────────────────────────────────
+const files = { train: null, forecast: null };
+let fcColumns = [];      // columns detected in the uploaded forecast CSV
+let fcTargetCol = '';    // column the user picked as the forecast target
+let trainColumns = [];   // columns detected in the uploaded training CSV
+let trainTargetCol = ''; // column the user picked to train the model on ("" = let the server auto-detect)
+
+// Reads just enough of the file to get its header row, without loading the
+// whole CSV into memory — good enough since we only need column names.
+function parseCsvHeaderLine(line) {
+  const cols = [];
+  let cur = '', inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else { inQuotes = false; } }
+      else cur += ch;
+    } else {
+      if (ch === '"') inQuotes = true;
+      else if (ch === ',') { cols.push(cur.trim()); cur = ''; }
+      else cur += ch;
+    }
+  }
+  cols.push(cur.trim());
+  return cols.filter(c => c.length);
+}
+function readCsvColumns(file, cb) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = String(e.target.result || '');
+    const firstLine = text.split(/\r\n|\n|\r/)[0] || '';
+    cb(parseCsvHeaderLine(firstLine));
+  };
+  reader.onerror = () => cb([]);
+  reader.readAsText(file.slice(0, 65536));
+}
+
+// Populates the "Which column do you want to forecast?" dropdown from the
+// uploaded forecast CSV's own header row, and pre-selects the column the
+// currently selected model expects (if it's present in this file).
+function loadForecastColumns(file) {
+  fcTargetCol = '';
+  const select = document.getElementById('fc-target-select');
+  const hint = document.getElementById('fc-target-hint');
+  select.disabled = true;
+  select.innerHTML = `<option value="">Reading columns…</option>`;
+  hint.textContent = '';
+  readCsvColumns(file, cols => {
+    fcColumns = cols;
+    if (!cols.length) {
+      select.innerHTML = `<option value="">Couldn't read columns from this file</option>`;
+      updateForecastButtonState();
+      return;
+    }
+    const expected = modelsCache.find(m => m.id === selectedModelId)?.schema?.target_col || '';
+    select.innerHTML = `<option value="">— Select a column —</option>` +
+      cols.map(c => `<option value="${c}">${c}</option>`).join('');
+    select.disabled = false;
+    if (expected && cols.includes(expected)) {
+      select.value = expected;
+      fcTargetCol = expected;
+      hint.textContent = `Matches this model's trained target ✓`;
+      hint.style.color = 'var(--a4)';
+    } else if (expected) {
+      hint.textContent = `This model was trained on a column named "${expected}" — pick whichever column here holds that same kind of data, and it'll be matched up automatically.`;
+      hint.style.color = 'var(--muted)';
+    }
+    updateForecastButtonState();
+  });
+}
+
+function onTargetColChange() {
+  fcTargetCol = document.getElementById('fc-target-select').value;
+  const hint = document.getElementById('fc-target-hint');
+  const expected = modelsCache.find(m => m.id === selectedModelId)?.schema?.target_col || '';
+  if (expected && fcTargetCol && fcTargetCol !== expected) {
+    hint.textContent = `Will be treated as "${expected}" (the model's trained target) for this forecast.`;
+    hint.style.color = 'var(--muted)';
+  } else if (expected && fcTargetCol === expected) {
+    hint.textContent = `Matches this model's trained target ✓`;
+    hint.style.color = 'var(--a4)';
+  } else {
+    hint.textContent = '';
+  }
+  updateForecastButtonState();
+}
+
+function updateForecastButtonState() {
+  document.getElementById('btn-fc').disabled = !(selectedModelId && files.forecast && fcTargetCol);
+}
+
+// Populates the training panel's "which column should the model learn to
+// predict?" dropdown from the uploaded CSV's own header row. Leaving it on
+// "Auto-detect" (the default) preserves the old behavior — the server
+// figures out the best target column itself — but the user can now pick
+// one explicitly instead.
+function loadTrainColumns(file) {
+  trainTargetCol = '';
+  const select = document.getElementById('train-target-select');
+  const hint = document.getElementById('train-target-hint');
+  select.disabled = true;
+  select.innerHTML = `<option value="">Reading columns…</option>`;
+  hint.textContent = '';
+  readCsvColumns(file, cols => {
+    trainColumns = cols;
+    if (!cols.length) {
+      select.innerHTML = `<option value="">Couldn't read columns from this file</option>`;
+      return;
+    }
+    select.innerHTML = `<option value="">Auto-detect (recommended)</option>` +
+      cols.map(c => `<option value="${c}">${c}</option>`).join('');
+    select.disabled = false;
+    hint.textContent = 'Leave on Auto-detect to let the model pick the best numeric column, or choose one yourself.';
+    hint.style.color = 'var(--muted)';
+  });
+}
+function onTrainTargetColChange() {
+  trainTargetCol = document.getElementById('train-target-select').value;
+  const hint = document.getElementById('train-target-hint');
+  hint.textContent = trainTargetCol
+    ? `The model will be trained to predict "${trainTargetCol}".`
+    : 'Leave on Auto-detect to let the model pick the best numeric column, or choose one yourself.';
+  hint.style.color = trainTargetCol ? 'var(--a4)' : 'var(--muted)';
+}
+
+function onFile(type) {
+  const el = document.getElementById(type === 'train' ? 'f-train' : 'f-fc');
+  if (!el.files[0]) return;
+  files[type] = el.files[0];
+  document.getElementById(type === 'train' ? 'fn-train' : 'fn-fc').textContent = el.files[0].name;
+  if (type === 'train') { document.getElementById('btn-train').disabled = false; loadTrainColumns(files.train); }
+  else { loadForecastColumns(files.forecast); updateForecastButtonState(); }
+}
+function onDrag(e,id){ e.preventDefault(); document.getElementById(id).classList.add('drag-over'); }
+function offDrag(id){ document.getElementById(id).classList.remove('drag-over'); }
+function onDrop(e,type){
+  e.preventDefault(); offDrag(type==='train'?'dz-train':'dz-fc');
+  const f = e.dataTransfer.files[0];
+  if (!f||!f.name.endsWith('.csv')) return;
+  files[type]=f;
+  document.getElementById(type==='train'?'fn-train':'fn-fc').textContent=f.name;
+  if (type === 'train') { document.getElementById('btn-train').disabled = false; loadTrainColumns(files.train); }
+  else { loadForecastColumns(files.forecast); updateForecastButtonState(); }
+}
+ 
+// ── Helpers ────────────────────────────────────────────────────────────────
+function setStatus(id, type, icon, msg) {
+  const el = document.getElementById(id);
+  el.className = `status-box sb-${type}`;
+  el.innerHTML = `<span class="sb-icon">${icon}</span><span>${msg}</span>`;
+}
+function setProg(id, on) {
+  const el = document.getElementById(id);
+  el.className = on ? 'prog-bar run' : 'prog-bar';
+}
+function updateBar(d) {
+  document.getElementById('m-status').textContent = d.model_name || '—';
+  document.getElementById('m-val').textContent    = d.val_rmse   ?? '—';
+  document.getElementById('m-base').textContent   = d.baseline_rmse ?? '—';
+  const acc = d.val_rmse && d.baseline_rmse
+    ? ((1 - d.val_rmse / d.baseline_rmse)*100).toFixed(1)+'%' : '—';
+  document.getElementById('m-acc').textContent = acc;
+  if (d.model_name) {
+    const b = document.getElementById('m-badge');
+    b.textContent = 'Trained ✓'; b.className = 'metric-badge mb-good';
+  }
+}
+ 
+// ── Train ──────────────────────────────────────────────────────────────────
+async function doTrain() {
+  if (!files.train) return;
+  const btn = document.getElementById('btn-train');
+  btn.disabled = true;
+  setProg('pb-train', true);
+  setStatus('st-train','loading','<span class="spin"></span>','Uploading and queuing training job...');
+  document.getElementById('res-train').classList.remove('on');
+  try {
+    const headers = await getAuthHeaders();
+    const fd = new FormData(); fd.append('file', files.train);
+    const name = document.getElementById('in-model-name').value.trim();
+    const params = new URLSearchParams();
+    if (name) params.set('model_name', name);
+    if (trainTargetCol) params.set('target_column', trainTargetCol);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetch(`${API}/train${qs}`, { method:'POST', headers, body:fd });
+    const d = await res.json();
+    if (!res.ok) throw new Error(apiErrorMessage(d, res.statusText));
+
+    // /train now queues a background job instead of training inline —
+    // poll GET /train/status/{job_id} until it's done or failed.
+    const jobId = d.job_id;
+    setStatus('st-train','loading','<span class="spin"></span>','Training queued — waiting for a worker...');
+    const result = await pollTrainingJob(jobId);
+
+    const m = result.metrics;
+    document.getElementById('r-model').textContent = m.model_name    || '—';
+    document.getElementById('r-trmse').textContent = m.train_rmse    ?? '—';
+    document.getElementById('r-vrmse').textContent = m.val_rmse      ?? '—';
+    document.getElementById('r-brmse').textContent = m.baseline_rmse ?? '—';
+    document.getElementById('r-lags').textContent  = m.best_lags     ?? '—';
+    document.getElementById('r-roll').textContent  = m.best_roll     ?? '—';
+    document.getElementById('res-train').classList.add('on');
+    setStatus('st-train','success','✅',`Model saved for <strong>${currentUserLabel()}</strong> — pick it below to run a forecast.`);
+    updateBar(m);
+    document.getElementById('in-model-name').value = '';
+    // Auto-select the model that was JUST trained — otherwise, if a
+    // different model was already selected, the forecast panel silently
+    // keeps forecasting with the OLD model (and its old target column)
+    // even though the user just trained a new one.
+    if (result.model_id) selectedModelId = result.model_id;
+    await fetchModels();      // refresh the list so the new model shows up
+    await fetchBillingStatus(); // usage counters (models_used) just changed
+  } catch(e) { setStatus('st-train','error','❌',e.message); }
+  setProg('pb-train',false); btn.disabled=false;
+}
+
+// ── Models list (train once, forecast with any saved model) ────────────────
+let selectedModelId = '';
+let modelsCache = [];
+
+async function fetchModels() {
+  const list = document.getElementById('models-list');
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetchWithTimeout(`${API}/models`, { headers }, 10000);
+    const d = await res.json();
+    if (!res.ok) throw new Error(apiErrorMessage(d, res.statusText));
+    modelsCache = d.models || [];
+
+    // Cap the Train panel if the plan's model limit is already reached.
+    const quotaBox = document.getElementById('st-models-quota');
+    if (d.max_models != null && d.models.length >= d.max_models) {
+      quotaBox.style.display = 'flex';
+      quotaBox.className = 'status-box sb-error';
+      quotaBox.innerHTML = `<span class="sb-icon">⚠️</span><span>You've reached your plan's limit of ${d.max_models} saved model(s). Delete one below, or upgrade your plan.</span>`;
+    } else {
+      quotaBox.style.display = 'none';
+    }
+
+    renderModels();
+
+    // Keep the currently selected model if it still exists, else auto-pick the newest.
+    if (!modelsCache.find(m => m.id === selectedModelId)) {
+      selectedModelId = modelsCache[0] ? modelsCache[0].id : '';
+    }
+    applySelection();
+  } catch (e) {
+    list.innerHTML = `<div class="empty-note" style="color:#f87171;">${e.message}</div>`;
+  }
+}
+
+function renderModels() {
+  const list = document.getElementById('models-list');
+  if (!modelsCache.length) {
+    list.innerHTML = `<div class="empty-note">No trained models yet — upload a CSV in "Train Model" to create your first one.</div>`;
+    return;
+  }
+  list.innerHTML = modelsCache.map(m => `
+    <div class="model-row ${m.id === selectedModelId ? 'selected' : ''}" onclick="selectModel('${m.id}')">
+      <input type="radio" name="model-pick" ${m.id === selectedModelId ? 'checked' : ''} onclick="event.stopPropagation(); selectModel('${m.id}')"/>
+      <div class="model-info">
+        <div class="model-name">${m.name || m.model_name || 'Untitled model'}</div>
+        <div class="model-meta">${m.model_name || '—'} · Val RMSE ${m.val_rmse ?? '—'} · ${m.created_at ? new Date(m.created_at).toLocaleString() : ''}</div>
+      </div>
+      <button class="model-del" onclick="event.stopPropagation(); deleteModel('${m.id}')">🗑</button>
+    </div>
+  `).join('');
+}
+
+function selectModel(id) {
+  selectedModelId = id;
+  applySelection();
+}
+
+function applySelection() {
+  renderModels();
+  const m = modelsCache.find(x => x.id === selectedModelId);
+  if (m) updateBar(m);
+  // Re-check the target-column pick against the (possibly new) model.
+  if (files.forecast && fcColumns.length) {
+    const expected = m?.schema?.target_col || '';
+    const hint = document.getElementById('fc-target-hint');
+    const select = document.getElementById('fc-target-select');
+    if (expected && fcColumns.includes(expected) && !fcTargetCol) {
+      select.value = expected;
+      fcTargetCol = expected;
+    }
+    if (expected && fcTargetCol === expected) {
+      hint.textContent = `Matches this model's trained target ✓`;
+      hint.style.color = 'var(--a4)';
+    } else if (expected && fcTargetCol) {
+      hint.textContent = `Will be treated as "${expected}" (the model's trained target) for this forecast.`;
+      hint.style.color = 'var(--muted)';
+    }
+  }
+  updateForecastButtonState();
+}
+
+async function deleteModel(id) {
+  if (!confirm('Delete this saved model? You will need to retrain to get it back.')) return;
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetchWithTimeout(`${API}/models/${encodeURIComponent(id)}`, { method:'DELETE', headers }, 10000);
+    const d = await res.json();
+    if (!res.ok) throw new Error(apiErrorMessage(d, res.statusText));
+    if (selectedModelId === id) selectedModelId = '';
+    await fetchModels();
+    await fetchBillingStatus();
+  } catch (e) { alert(e.message); }
+}
+
+// Polls a training job's status every 3 seconds until it's done or failed.
+// Also updates the status line so the user can see it's still working
+// (grid search can take anywhere from seconds to several minutes).
+async function pollTrainingJob(jobId, intervalMs = 3000, maxWaitMs = 20 * 60 * 1000) {
+  const headers = await getAuthHeaders();
+  const startedAt = Date.now();
+  while (true) {
+    if (Date.now() - startedAt > maxWaitMs) {
+      throw new Error("Training is taking longer than expected — check back later, it may still finish.");
+    }
+    const res = await fetchWithTimeout(`${API}/train/status/${jobId}`, { headers }, 10000);
+    const d = await res.json();
+    if (!res.ok) throw new Error(apiErrorMessage(d, res.statusText));
+
+    if (d.status === "done") return d;
+    if (d.status === "failed") throw new Error(d.error || "Training failed.");
+    if (d.status === "interrupted") throw new Error("Training was interrupted by a server restart — please try again.");
+
+    setStatus('st-train','loading','<span class="spin"></span>',
+      d.status === "running" ? "Training in progress..." : "Waiting in queue...");
+    await new Promise(r => setTimeout(r, intervalMs));
+  }
+}
+ 
+// ── Forecast ───────────────────────────────────────────────────────────────
+let lastCSV = '';
+let lastForecastId = '';
+let lastForecastMonths = 3;
+async function doForecast() {
+  if (!files.forecast || !selectedModelId) return;
+  if (!fcTargetCol) {
+    setStatus('st-fc','error','⚠️','You must choose a column to forecast before running.');
+    return;
+  }
+  const btn = document.getElementById('btn-fc');
+  btn.disabled=true; setProg('pb-fc',true);
+  setStatus('st-fc','loading','<span class="spin"></span>','Running forecast...');
+  document.getElementById('res-fc').classList.remove('on');
+  try {
+    const headers = await getAuthHeaders();
+    const months = document.querySelector('input[name="fc-months"]:checked').value;
+    lastForecastMonths = parseInt(months);
+    const fd = new FormData(); fd.append('file', files.forecast);
+    const qs = `months=${months}&model_id=${encodeURIComponent(selectedModelId)}&target_column=${encodeURIComponent(fcTargetCol)}`;
+    const res = await fetchWithTimeout(`${API}/forecast?${qs}`, { method:'POST', headers, body:fd }, 60000); // 1 min timeout
+    if (!res.ok) { const e=await res.json(); throw new Error(apiErrorMessage(e, res.statusText)); }
+    lastCSV = await res.text();
+    lastForecastId = res.headers.get('X-Forecast-Id') || '';
+    const saveError = res.headers.get('X-Forecast-Save-Error') || '';
+    const rows = lastCSV.trim().split('\n').map(r=>r.split(','));
+    const thead = document.querySelector('#fc-table thead');
+    const tbody = document.querySelector('#fc-table tbody');
+    thead.innerHTML = '<tr>'+rows[0].map(h=>`<th>${h}</th>`).join('')+'</tr>';
+    tbody.innerHTML = rows.slice(1).map(r=>'<tr>'+r.map(c=>`<td>${c}</td>`).join('')+'</tr>').join('');
+    document.getElementById('res-fc').classList.add('on');
+    document.getElementById('btn-insights').disabled = !lastForecastId || !myInsightsEnabled;
+    if (saveError) {
+      // The forecast itself succeeded (CSV below is real) but saving it to
+      // your history/Insights failed — surfaced instead of hidden, so
+      // "View Insights" being disabled for THIS run actually makes sense.
+      setStatus('st-fc','error','⚠️',`Forecast ready, but it couldn't be saved to your history: <strong>${saveError}</strong>. The CSV download below is unaffected — only Past Forecasts/Insights for this run.`);
+    } else {
+      setStatus('st-fc','success','✅',`Forecast complete — ${months}-month predictions ready.`);
+    }
+    fetchForecastHistory();
+    fetchBillingStatus();
+  } catch(e) { setStatus('st-fc','error','❌',e.message); }
+  setProg('pb-fc',false); btn.disabled=false;
+}
+ 
+function downloadCSV() {
+  if (!lastCSV) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([lastCSV],{type:'text/csv'}));
+  a.download = `forecast_${currentUserLabel().replace('@','_')}.csv`;
+  a.click();
+}
+ 
+// ── View Insights ─────────────────────────────────────────────────────────
+// Opens the real, data-driven Insights dashboard for a saved forecast run —
+// /insights reads everything it needs from GET /forecasts/{forecast_id}
+// (predictions + historical snapshot + schema + metrics), so all we pass
+// here is the id, not the actual data. Works both right after a fresh
+// forecast AND for any past forecast picked from the history list below —
+// it no longer depends on an in-memory variable that resets on reload.
+function viewInsights(forecastId) {
+  const id = forecastId || lastForecastId;
+  if (!id) return;
+  window.open(`/insights?forecast_id=${encodeURIComponent(id)}`, '_blank');
+}
+
+// ── One-click Firestore self-test — see /debug/firestore-check on the API ──
+async function runFirestoreDiagnostic() {
+  const box = document.getElementById('st-diagnostic');
+  box.style.display = 'flex';
+  box.className = 'status-box sb-idle';
+  box.innerHTML = `<span class="sb-icon"><span class="spin"></span></span><span>Testing Firestore read/write for your account...</span>`;
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetchWithTimeout(`${API}/debug/firestore-check`, { headers }, 15000);
+    const d = await res.json();
+    if (d.ok) {
+      box.className = 'status-box sb-success';
+      box.innerHTML = `<span class="sb-icon">✅</span><span>Firestore read/write is working fine for your account. If Past Forecasts is still empty, it means no forecast has been successfully saved yet — try running one above and watch for a save-error message.</span>`;
+    } else {
+      box.className = 'status-box sb-error';
+      box.innerHTML = `<span class="sb-icon">❌</span><span><strong>${d.error_type || 'Error'}:</strong> ${d.error || 'Unknown error'} — this is the exact reason saving models/forecasts may be failing.</span>`;
+    }
+  } catch (e) {
+    box.className = 'status-box sb-error';
+    box.innerHTML = `<span class="sb-icon">❌</span><span>${e.message}</span>`;
+  }
+}
+
+// ── Past Forecasts history ──────────────────────────────────────────────────
+async function fetchForecastHistory() {
+  const list = document.getElementById('hist-list');
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetchWithTimeout(`${API}/forecasts?limit=20`, { headers }, 10000);
+    const d = await res.json();
+    if (!res.ok) throw new Error(apiErrorMessage(d, res.statusText));
+    renderHistory(d.forecasts || []);
+  } catch (e) {
+    list.innerHTML = `<div class="empty-note" style="color:#f87171;">${e.message}</div>`;
+  }
+}
+
+function renderHistory(items) {
+  const list = document.getElementById('hist-list');
+  if (!items.length) {
+    list.innerHTML = `<div class="empty-note">No forecasts run yet — run one above and it'll show up here.</div>`;
+    return;
+  }
+  const insightsCell = f => myInsightsEnabled
+    ? `<a class="hist-view" href="/insights?forecast_id=${encodeURIComponent(f.id)}" target="_blank" rel="noopener">📊 View Insights</a>`
+    : `<a class="hist-view" href="/plan-details?plan=growth&mode=subscribe" style="opacity:.65;" title="Insights is a Growth/Scale feature — click to upgrade">🔒 Upgrade for Insights</a>`;
+  list.innerHTML = items.map(f => `
+    <div class="hist-row">
+      <div class="hist-info">
+        <div class="hist-title">${f.model_name || 'Forecast'} · ${f.months ?? '—'}-month horizon</div>
+        <div class="hist-meta">Val RMSE ${f.val_rmse ?? '—'} · ${f.created_at ? new Date(f.created_at).toLocaleString() : ''}</div>
+      </div>
+      ${insightsCell(f)}
+      <button class="model-del" onclick="deleteForecast('${f.id}')">🗑</button>
+    </div>
+  `).join('');
+}
+
+async function deleteForecast(id) {
+  if (!confirm('Delete this saved forecast? Its Insights page will no longer be accessible.')) return;
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetchWithTimeout(`${API}/forecasts/${encodeURIComponent(id)}`, { method:'DELETE', headers }, 10000);
+    const d = await res.json();
+    if (!res.ok) throw new Error(apiErrorMessage(d, res.statusText));
+    fetchForecastHistory();
+  } catch (e) { alert(e.message); }
+}
+
+// ── Neural SVG bg ──────────────────────────────────────────────────────────
+(function(){
+  const svg=document.getElementById('nsvg');
+  const N=Array.from({length:30},()=>({x:Math.random()*1400,y:Math.random()*800}));
+  let h='';
+  N.forEach((a,i)=>N.forEach((b,j)=>{
+    if(j<=i)return;
+    const d=Math.hypot(a.x-b.x,a.y-b.y);
+    if(d<200)h+=`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="#7c3aff" stroke-width=".8" stroke-opacity="${(1-d/200)*.5}"/>`;
+  }));
+  N.forEach(n=>h+=`<circle cx="${n.x}" cy="${n.y}" r="2.5" fill="#7c3aff" fill-opacity=".5"/>`);
+  svg.innerHTML=h;
+})();
+</script>
+</body>
+</html>

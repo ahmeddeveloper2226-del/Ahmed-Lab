@@ -1,0 +1,276 @@
+"""
+🧬  Automatic schema detection.
+
+The original pipeline only accepted one fixed shape of CSV (month,
+product_id, number_of_product_purchases, ...). This module lets /train and
+/forecast accept ANY CSV with ANY column names by figuring out, on its own:
+
+  - date_col    : which column is the time axis
+  - group_col   : which column (if any) splits the data into separate series
+                  to forecast independently — e.g. product_id, store_id,
+                  customer_id. None means "treat the whole file as one series".
+  - target_col  : which numeric column to forecast
+  - numeric_features / categorical_features : everything else, fed to the
+                  model as extra inputs (replaces the old hardcoded
+                  conversion_rate / cart_drop_rate engineering, which only
+                  made sense for the original e-commerce schema)
+
+Detection runs once, at /train time, and the resulting dict is saved in the
+model bundle (see main.py `_save_trained_model`) so /forecast reuses the
+EXACT same columns instead of re-guessing on a new upload — the new CSV
+must have the same column names as the one used for training.
+
+Optional overrides (date_column / group_column / target_column) let a
+caller pin a column explicitly instead of relying on auto-detection —
+main.py exposes these as optional query params on /train.
+"""
+import pandas as pd
+
+DATE_NAME_HINTS = ["date", "month", "day", "week", "year", "period", "ds", "timestamp", "time"]
+TARGET_NAME_HINTS = [
+    "target", "sales", "purchase", "purchases", "revenue", "demand", "qty", "quantity",
+    "units", "amount", "count", "orders", "value", "y",
+]
+# Columns whose name suggests they're an intermediate/derived signal (a
+# rate, a sub-count of some larger event) rather than the thing you'd
+# actually want to forecast — used to break ties when several columns
+# match a TARGET_NAME_HINT (e.g. a CSV with both "number_of_product_
+# purchases" and "number_of_times_add_followed_by_purchase").
+TARGET_NAME_PENALTIES = ["rate", "followed_by", "drop", "ratio", "pct", "percent"]
+GROUP_NAME_HINTS = ["id", "product", "sku", "store", "customer", "category", "region", "segment", "item", "group"]
+
+# Columns with more unique values than this (as a fraction of row count)
+# are treated as free text / identifiers, not useful categorical features.
+MAX_CATEGORY_UNIQUE_RATIO = 0.2
+MAX_CATEGORY_UNIQUE_ABS = 50
+
+
+def _looks_like_numeric_date_code(numeric: pd.Series) -> bool:
+    """True if a column of numbers looks like an actual date code — YYYYMM
+    (e.g. 202401) or YYYYMMDD (e.g. 20240115) — rather than an arbitrary
+    numeric measurement that just happens to be a valid integer/float."""
+    vals = numeric.dropna()
+    if vals.empty or not (vals % 1 == 0).all():
+        return False
+    ints = vals.astype("int64")
+    # YYYYMM
+    in_range = ints.between(190001, 999912)
+    if in_range.mean() >= 0.95:
+        months = ints % 100
+        years = ints // 100
+        if ((months.between(1, 12)) & (years.between(1900, 9999))).mean() >= 0.95:
+            return True
+    # YYYYMMDD
+    in_range = ints.between(19000101, 99991231)
+    if in_range.mean() >= 0.95:
+        days = ints % 100
+        months = (ints // 100) % 100
+        years = ints // 10000
+        if (days.between(1, 31) & months.between(1, 12) & years.between(1900, 9999)).mean() >= 0.95:
+            return True
+    return False
+
+
+def _date_parse_ratio(series: pd.Series) -> float:
+    ratio, _ = _date_parse_ratio_and_style(series)
+    return ratio
+
+
+def _date_parse_ratio_and_style(series: pd.Series) -> tuple[float, bool]:
+    """Returns (best_ratio, dayfirst) — many real-world CSVs (and most
+    non-US locales, Egypt included) write dates as DD-MM-YYYY, which
+    pandas' default (month-first) parsing either misreads silently (e.g.
+    '05-02-2010' read as May 2nd instead of Feb 5th) or fails outright for
+    any day > 12 (e.g. '19-02-2010'). Trying both interpretations and
+    keeping whichever parses more successfully means both detection AND
+    the actual data ends up using the correct reading, instead of just
+    picking a column and then parsing it wrong."""
+    if len(series) == 0:
+        return 0.0, False
+    numeric = pd.to_numeric(series, errors="coerce")
+    if numeric.notna().mean() >= 0.9 and not _looks_like_numeric_date_code(numeric):
+        return 0.0, False
+    ratio_default  = pd.to_datetime(series, errors="coerce").notna().mean()
+    ratio_dayfirst = pd.to_datetime(series, errors="coerce", dayfirst=True).notna().mean()
+    if ratio_dayfirst > ratio_default:
+        return ratio_dayfirst, True
+    return ratio_default, False
+
+
+def _numeric_parse_ratio(series: pd.Series) -> float:
+    if len(series) == 0:
+        return 0.0
+    return pd.to_numeric(series, errors="coerce").notna().mean()
+
+
+def detect_date_column(df: pd.DataFrame, override: str = None) -> tuple[str, bool]:
+    """Returns (date_col, dayfirst) — dayfirst says whether DD-MM-YYYY (not
+    pandas' default MM-DD-YYYY) parses this column correctly, so the exact
+    same interpretation can be reused later when actually converting it."""
+    if override:
+        if override not in df.columns:
+            raise ValueError(f"date_column '{override}' not found in the CSV. Columns: {list(df.columns)}")
+        _, dayfirst = _date_parse_ratio_and_style(df[override])
+        return override, dayfirst
+
+    candidates = []
+    for col in df.columns:
+        ratio, dayfirst = _date_parse_ratio_and_style(df[col])
+        if ratio >= 0.9:
+            bonus = 0.05 if any(h in str(col).lower() for h in DATE_NAME_HINTS) else 0.0
+            candidates.append((ratio + bonus, col, dayfirst))
+
+    if not candidates:
+        raise ValueError(
+            "Couldn't find a date/time column in the CSV — at least one "
+            "column needs to contain parseable dates (e.g. '2024-01', "
+            "'Jan 2024', '2024-01-15')."
+        )
+    candidates.sort(key=lambda t: t[0], reverse=True)
+    return candidates[0][1], candidates[0][2]
+
+
+# A column with only this many (or fewer) distinct values reads as a
+# boolean/flag rather than a meaningful set of series to forecast
+# separately — e.g. "purchased" (yes/no), "in_stock" (0/1). Excluded from
+# group-column candidacy outright, however often it repeats, since
+# "repeats a lot" is exactly the property a flag column also has.
+MIN_GROUP_UNIQUE_VALUES = 3
+# Extra guard: even at 3+ uniques, values that look like true/false/yes/no
+# read as a flag, not a set of series — e.g. a "status" column with values
+# {"yes","no","unknown"}.
+BOOLEAN_LIKE_VALUES = {"true", "false", "yes", "no", "y", "n", "0", "1", "t", "f"}
+
+
+def detect_group_column(df: pd.DataFrame, date_col: str, override: str = None) -> str | None:
+    if override:
+        if override not in df.columns:
+            raise ValueError(f"group_column '{override}' not found in the CSV. Columns: {list(df.columns)}")
+        return override
+
+    n = len(df)
+    best, best_score = None, -1.0
+    for col in df.columns:
+        if col == date_col:
+            continue
+        nunique = df[col].nunique(dropna=True)
+        # A usable "group" column has more than one row per value (so there's
+        # a real time series per group) but isn't a near-constant column,
+        # AND has enough distinct values to be a real category rather than
+        # a boolean/flag (see MIN_GROUP_UNIQUE_VALUES above).
+        if nunique < MIN_GROUP_UNIQUE_VALUES or nunique >= n:
+            continue
+        distinct_values = set(str(v).strip().lower() for v in df[col].dropna().unique())
+        if distinct_values <= BOOLEAN_LIKE_VALUES:
+            continue
+        avg_rows_per_group = n / nunique
+        if avg_rows_per_group < 2:
+            continue
+        score = avg_rows_per_group
+        if any(h in str(col).lower() for h in GROUP_NAME_HINTS):
+            score *= 1.5
+        if score > best_score:
+            best_score, best = score, col
+    return best  # None => single series, no grouping
+
+
+def detect_target_column(df: pd.DataFrame, date_col: str, group_col: str | None, override: str = None) -> str:
+    if override:
+        if override not in df.columns:
+            raise ValueError(f"target_column '{override}' not found in the CSV. Columns: {list(df.columns)}")
+        return override
+
+    reserved = {date_col, group_col} - {None}
+    candidates = []
+    for col in df.columns:
+        if col in reserved:
+            continue
+        ratio = _numeric_parse_ratio(df[col])
+        if ratio < 0.9:
+            continue
+        numeric = pd.to_numeric(df[col], errors="coerce")
+        if numeric.nunique(dropna=True) <= 1:
+            continue  # constant — nothing to forecast
+        # Name match strength: an exact hint match (column literally named
+        # "sales") scores higher than a column that merely contains the
+        # hint as a substring (e.g. "number_of_times_add_followed_by_
+        # purchase" contains "purchase" but isn't really the target) —
+        # this disambiguates CSVs with several "purchase-ish" columns.
+        col_l = str(col).lower()
+        name_score = 0.0
+        for h in TARGET_NAME_HINTS:
+            if col_l == h:
+                name_score = max(name_score, 3.0)
+            elif col_l.startswith(h + "_") or col_l.endswith("_" + h):
+                name_score = max(name_score, 2.0)
+            elif h in col_l:
+                name_score = max(name_score, 1.0)
+        if any(p in col_l for p in TARGET_NAME_PENALTIES):
+            name_score -= 1.5
+        variance = numeric.var()
+        candidates.append((name_score, variance if pd.notna(variance) else 0.0, col))
+
+    if not candidates:
+        raise ValueError(
+            "Couldn't find a numeric column to forecast in the CSV — need "
+            "at least one numeric column besides the date/group columns."
+        )
+    # Name hints win first (exact > prefix/suffix > substring); highest
+    # variance breaks ties among columns with the same name-match strength.
+    candidates.sort(key=lambda t: (t[0], t[1]), reverse=True)
+    return candidates[0][2]
+
+
+def detect_schema(
+    df: pd.DataFrame,
+    date_column: str = None,
+    group_column: str = None,
+    target_column: str = None,
+) -> dict:
+    """Returns {date_col, group_col, target_col, numeric_features, categorical_features}."""
+    date_col, date_dayfirst = detect_date_column(df, override=date_column)
+    group_col = detect_group_column(df, date_col, override=group_column)
+    target_col = detect_target_column(df, date_col, group_col, override=target_column)
+
+    # Defense-in-depth: even though each detector is supposed to avoid the
+    # others' column, an explicit override (date_column/group_column/
+    # target_column) skips that check entirely — so two roles CAN end up
+    # pointing at the same column (e.g. auto-detection mistakenly picks a
+    # numeric column as the date, while the caller separately pins that
+    # same column as the target). Using one column as two roles silently
+    # corrupts it during preprocessing (each role's coercion overwrites the
+    # other's), so fail loudly here instead.
+    if target_col == date_col:
+        raise ValueError(
+            f"The target column and the date column can't be the same ('{target_col}'). "
+            "Pass date_column explicitly (or rename a column) to fix this."
+        )
+    if target_col == group_col:
+        raise ValueError(
+            f"The target column and the group column can't be the same ('{target_col}'). "
+            "Pass group_column explicitly (or rename a column) to fix this."
+        )
+
+    reserved = {date_col, group_col, target_col} - {None}
+    remaining = [c for c in df.columns if c not in reserved]
+
+    numeric_features, categorical_features = [], []
+    for col in remaining:
+        if _numeric_parse_ratio(df[col]) >= 0.9:
+            numeric_features.append(col)
+        else:
+            nunique = df[col].nunique(dropna=True)
+            cap = max(MAX_CATEGORY_UNIQUE_ABS, len(df) * MAX_CATEGORY_UNIQUE_RATIO)
+            if nunique < cap:
+                categorical_features.append(col)
+            # else: looks like free text / a unique identifier — dropped,
+            # one-hot encoding it would blow up the model for no benefit.
+
+    return {
+        "date_col": date_col,
+        "date_dayfirst": date_dayfirst,
+        "group_col": group_col,
+        "target_col": target_col,
+        "numeric_features": numeric_features,
+        "categorical_features": categorical_features,
+    }

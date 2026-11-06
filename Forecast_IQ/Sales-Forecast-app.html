@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sales Forecasting Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+
+  <style>
+    :root {
+      --bg: #03040a;
+      --surface: #080c18;
+      --card: #0b0f1e;
+      --border: rgba(255,255,255,0.06);
+      --accent1: #7c3aff;
+      --accent2: #06b6d4;
+      --accent3: #f0abfc;
+      --accent4: #34d399;
+      --accent5: #fb923c;
+      --text: #f1f5f9;
+      --muted: #64748b;
+      --glow1: rgba(124,58,255,0.4);
+      --glow2: rgba(6,182,212,0.3);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* ── BACKGROUND: Neural Network Grid ── */
+    .bg-canvas {
+      position: fixed; inset: 0; z-index: 0; overflow: hidden;
+    }
+
+    /* Animated SVG neural net */
+    #neural-svg {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      opacity: 0.18;
+    }
+
+    /* Gradient orbs — more subtle, refined */
+    .orb {
+      position: absolute; border-radius: 50%;
+      filter: blur(80px); opacity: 0.35;
+      animation: drift 16s ease-in-out infinite alternate;
+    }
+    .orb-1 { width:600px;height:600px;background:radial-gradient(circle,#7c3aff,transparent 70%);top:-20%;left:-15%;animation-delay:0s; }
+    .orb-2 { width:500px;height:500px;background:radial-gradient(circle,#06b6d4,transparent 70%);bottom:-15%;right:-10%;animation-delay:-5s; }
+    .orb-3 { width:380px;height:380px;background:radial-gradient(circle,#f0abfc,transparent 70%);top:35%;left:50%;animation-delay:-9s; }
+    .orb-4 { width:300px;height:300px;background:radial-gradient(circle,#34d399,transparent 70%);bottom:25%;left:5%;animation-delay:-7s; }
+
+    @keyframes drift {
+      0%   { transform:translate(0,0) scale(1); }
+      50%  { transform:translate(30px,-25px) scale(1.06); }
+      100% { transform:translate(-15px,40px) scale(0.94); }
+    }
+
+    /* Scanline overlay */
+    .scanlines {
+      position: fixed; inset: 0; z-index: 1; pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.04) 2px,
+        rgba(0,0,0,0.04) 4px
+      );
+    }
+
+    /* Noise grain */
+    .grain {
+      position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: 0.03;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      background-size: 150px 150px;
+    }
+
+    /* ═══════════════════════════════════════
+       DATA STREAM — right side decoration
+    ═══════════════════════════════════════ */
+    .data-stream {
+      position: fixed; right: 0; top: 0; bottom: 0;
+      width: 220px; z-index: 2; pointer-events: none;
+      display: flex; flex-direction: column; gap: 0;
+      overflow: hidden;
+      mask-image: linear-gradient(to bottom, transparent, black 10%, black 90%, transparent);
+    }
+    .stream-col {
+      position: absolute; top: 0; bottom: 0;
+      font-size: 10px; font-family: 'JetBrains Mono', monospace;
+      color: var(--accent2); opacity: 0.25; white-space: nowrap;
+      animation: stream-fall linear infinite;
+      line-height: 1.6;
+      writing-mode: horizontal-tb;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    @keyframes stream-fall {
+      0%   { transform: translateY(-100%); }
+      100% { transform: translateY(100vh); }
+    }
+
+    /* Same on left */
+    .data-stream-left {
+      position: fixed; left: 0; top: 0; bottom: 0;
+      width: 160px; z-index: 2; pointer-events: none;
+      overflow: hidden;
+      mask-image: linear-gradient(to bottom, transparent, black 10%, black 90%, transparent);
+    }
+    .stream-col-l {
+      position: absolute; top: 0; bottom: 0;
+      font-size: 9px; font-family: 'JetBrains Mono', monospace;
+      color: var(--accent1); opacity: 0.18; white-space: nowrap;
+      animation: stream-fall linear infinite;
+      line-height: 1.8;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+
+    /* ═══════════════════════════════════════
+       CARD
+    ═══════════════════════════════════════ */
+    .card {
+      position: relative; z-index: 10;
+      width: 460px;
+      background: linear-gradient(160deg,
+        rgba(11,15,30,0.97) 0%,
+        rgba(8,12,24,0.99) 100%
+      );
+      border: 1px solid rgba(124,58,255,0.2);
+      border-radius: 20px;
+      padding: 40px 38px 34px;
+      box-shadow:
+        0 0 0 1px rgba(6,182,212,0.06),
+        0 40px 100px rgba(0,0,0,0.7),
+        0 0 80px rgba(124,58,255,0.1),
+        inset 0 1px 0 rgba(255,255,255,0.05),
+        inset 0 0 40px rgba(124,58,255,0.03);
+      backdrop-filter: blur(32px);
+      animation: cardIn 0.8s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    @keyframes cardIn {
+      from { opacity:0; transform:translateY(50px) scale(0.94); }
+      to   { opacity:1; transform:translateY(0) scale(1); }
+    }
+
+    /* Corner accents — circuit board style */
+    .corner {
+      position: absolute; width: 24px; height: 24px; pointer-events: none;
+    }
+    .corner-tl { top: -1px; left: -1px; border-top: 2px solid var(--accent1); border-left: 2px solid var(--accent1); border-radius: 20px 0 0 0; }
+    .corner-tr { top: -1px; right: -1px; border-top: 2px solid var(--accent2); border-right: 2px solid var(--accent2); border-radius: 0 20px 0 0; }
+    .corner-bl { bottom: -1px; left: -1px; border-bottom: 2px solid var(--accent4); border-left: 2px solid var(--accent4); border-radius: 0 0 0 20px; }
+    .corner-br { bottom: -1px; right: -1px; border-bottom: 2px solid var(--accent3); border-right: 2px solid var(--accent3); border-radius: 0 0 20px 0; }
+
+    /* ── Header ── */
+    .header-row {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .logo-area { display: flex; align-items: center; gap: 14px; }
+
+    /* Hexagon logo */
+    .logo-hex {
+      width: 48px; height: 48px; position: relative;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .logo-hex svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .logo-hex-inner {
+      position: relative; z-index: 1; font-size: 20px;
+    }
+
+    .title-block { display: flex; flex-direction: column; gap: 2px; }
+
+    h2 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 32px; letter-spacing: 2px;
+      background: linear-gradient(90deg, var(--accent1) 0%, var(--accent2) 50%, var(--accent3) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      line-height: 1;
+    }
+
+    .subtitle {
+      font-size: 9px; color: var(--muted); letter-spacing: 0.2em;
+      text-transform: uppercase; font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Status badge */
+    .status-badge {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 10px;
+      background: rgba(52,211,153,0.08);
+      border: 1px solid rgba(52,211,153,0.2);
+      border-radius: 20px;
+      font-size: 9px; color: var(--accent4);
+      letter-spacing: 0.15em; text-transform: uppercase;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .status-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--accent4);
+      animation: pulse-dot 2s ease-in-out infinite;
+      box-shadow: 0 0 6px var(--accent4);
+    }
+    @keyframes pulse-dot {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.4; transform: scale(0.8); }
+    }
+
+    /* ── Divider with label ── */
+    .divider-row {
+      display: flex; align-items: center; gap: 12px;
+      margin: 20px 0 24px;
+    }
+    .divider-line {
+      flex: 1; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(124,58,255,0.3), transparent);
+    }
+    .divider-label {
+      font-size: 9px; color: rgba(100,116,139,0.6);
+      letter-spacing: 0.2em; text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+
+
+    /* ── Metrics row — above tabs ── */
+    .metrics-row {
+      display: flex; gap: 8px; margin-bottom: 22px;
+    }
+    .metric-pill {
+      flex: 1; padding: 8px 10px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 10px;
+      display: flex; flex-direction: column; gap: 3px;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .metric-pill:hover {
+      border-color: rgba(124,58,255,0.25);
+      background: rgba(124,58,255,0.05);
+    }
+    .metric-val {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 18px; letter-spacing: 1px;
+      background: linear-gradient(90deg, var(--accent1), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .metric-lbl {
+      font-size: 8px; color: var(--muted);
+      letter-spacing: 0.15em; text-transform: uppercase;
+    }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex; background: rgba(255,255,255,0.03);
+      border-radius: 12px; padding: 3px; margin-bottom: 24px;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .tab-btn {
+      flex: 1; padding: 9px; border: none; background: transparent;
+      color: var(--muted); font-family: 'JetBrains Mono', monospace;
+      font-size: 12px; font-weight: 500; letter-spacing: 0.08em;
+      cursor: pointer; border-radius: 10px; transition: all 0.25s;
+      text-transform: uppercase;
+    }
+    .tab-btn.active {
+      background: linear-gradient(135deg, var(--accent1), #5b21b6);
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(124,58,255,0.35);
+    }
+
+    /* ── Fields ── */
+    .field { margin-bottom: 16px; position: relative; }
+    .field label {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 9px; letter-spacing: 0.18em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 7px;
+    }
+    .label-line {
+      flex: 1; height: 1px;
+      background: linear-gradient(90deg, rgba(124,58,255,0.2), transparent);
+    }
+    .field-wrap { position: relative; display: flex; align-items: center; }
+    .field-icon {
+      position: absolute; left: 14px; font-size: 14px;
+      opacity: 0.4; pointer-events: none; transition: opacity 0.2s;
+    }
+    .field input {
+      width: 100%; padding: 12px 16px 12px 42px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px; color: var(--text);
+      font-family: 'JetBrains Mono', monospace; font-size: 13px;
+      outline: none; transition: all 0.25s;
+    }
+    .field input::placeholder { color: rgba(100,116,139,0.4); }
+    .field input:focus {
+      background: rgba(124,58,255,0.05);
+      border-color: rgba(124,58,255,0.5);
+      box-shadow: 0 0 0 3px rgba(124,58,255,0.1), 0 0 20px rgba(124,58,255,0.06);
+    }
+    .field-wrap:focus-within .field-icon { opacity: 0.8; }
+
+    /* ── Button ── */
+    .btn-row { margin-bottom: 18px; }
+    button {
+      cursor: pointer; font-family: 'JetBrains Mono', monospace;
+      font-weight: 500; letter-spacing: 0.06em;
+      border: none; border-radius: 10px; transition: all 0.22s;
+    }
+    .btn-primary {
+      width: 100%; padding: 13px;
+      position: relative; overflow: hidden;
+      background: linear-gradient(135deg, var(--accent1) 0%, #5b21b6 50%, var(--accent2) 100%);
+      background-size: 200% 200%;
+      color: #fff; font-size: 13px;
+      box-shadow: 0 6px 28px rgba(124,58,255,0.35);
+      animation: grad-shift 5s ease infinite;
+      text-transform: uppercase; letter-spacing: 0.15em;
+    }
+
+    /* Shimmer sweep */
+    .btn-primary::before {
+      content: '';
+      position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+      transform: skewX(-20deg);
+      animation: btn-shimmer 3s ease-in-out infinite;
+    }
+    @keyframes btn-shimmer {
+      0%,100% { left: -100%; }
+      50%      { left: 150%; }
+    }
+
+    .btn-primary::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: rgba(255,255,255,0.1); opacity: 0; transition: opacity 0.2s;
+    }
+    .btn-primary:hover::after { opacity: 1; }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 35px rgba(124,58,255,0.5); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    @keyframes grad-shift {
+      0%,100% { background-position: 0% 50%; }
+      50%      { background-position: 100% 50%; }
+    }
+
+    /* ── Social sign-in ── */
+    .social-divider {
+      display: flex; align-items: center; gap: 10px;
+      margin: 16px 0 14px;
+    }
+    .social-divider-line { flex: 1; height: 1px; background: rgba(255,255,255,0.1); }
+    .social-divider-label {
+      font-size: 10px; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.12em; white-space: nowrap;
+    }
+    .social-row { display: flex; gap: 10px; margin-bottom: 4px; }
+    .btn-social {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      gap: 8px; padding: 11px; border-radius: 10px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #e5e7eb; font-size: 12px;
+    }
+    .btn-social:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); }
+    .btn-social:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Hidden elements kept intact */
+    #tokenBox { display: none; }
+    #token-section { display: none; }
+    #api-btn { display: none; }
+
+    /* ── Message ── */
+    #msg {
+      font-size: 11px; letter-spacing: 0.05em; min-height: 18px;
+      text-align: center; padding: 0 4px; transition: all 0.3s;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    #msg.success { color: var(--accent4); }
+    #msg.error   { color: #f87171; }
+    #msg.loading { color: var(--accent2); }
+
+    /* ── Footer ── */
+    .footer {
+      margin-top: 20px; text-align: center; font-size: 9px;
+      color: rgba(100,116,139,0.35); letter-spacing: 0.18em;
+      text-transform: uppercase;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+    }
+    .footer-dot {
+      width: 3px; height: 3px; border-radius: 50%;
+      background: rgba(124,58,255,0.4);
+    }
+
+    /* ── Info links (About / User Guide) ── */
+    .info-links {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      margin-top: 14px;
+    }
+    .info-link {
+      font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em;
+      text-transform: uppercase; text-decoration: none; padding: 7px 14px;
+      border-radius: 8px; border: 1px solid rgba(124,58,255,0.25);
+      color: var(--accent3, #f0abfc); background: rgba(124,58,255,0.06);
+      transition: all 0.2s;
+    }
+    .info-link:hover { background: rgba(124,58,255,0.14); border-color: rgba(124,58,255,0.5); }
+
+    /* ── Particles ── */
+    .particles { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+    .particle {
+      position: absolute; border-radius: 50%;
+      background: var(--accent1); animation: float-up linear infinite; opacity: 0;
+    }
+    @keyframes float-up {
+      0%   { transform: translateY(100vh); opacity: 0; }
+      10%  { opacity: 0.5; }
+      90%  { opacity: 0.2; }
+      100% { transform: translateY(-100px); opacity: 0; }
+    }
+
+    /* ── Confirm field ── */
+    #confirm-field { display: none; }
+
+    /* ══════════════════════════════════════════
+       📈 FORECAST MINI CHART — below eye, above metrics
+    ══════════════════════════════════════════ */
+    .forecast-strip {
+      position: relative;
+      margin-bottom: 18px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 10px 14px 8px;
+      overflow: hidden;
+    }
+
+    .forecast-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .forecast-title {
+      font-size: 8px; color: var(--muted);
+      letter-spacing: 0.2em; text-transform: uppercase;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .forecast-title::before {
+      content: '';
+      width: 6px; height: 6px; border-radius: 1px;
+      background: linear-gradient(135deg, var(--accent1), var(--accent2));
+      display: inline-block;
+    }
+    .forecast-val {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 15px; letter-spacing: 1px;
+      color: var(--accent4);
+    }
+    .forecast-delta {
+      font-size: 8px; color: var(--accent4);
+      background: rgba(52,211,153,0.1);
+      border: 1px solid rgba(52,211,153,0.2);
+      border-radius: 20px; padding: 1px 6px;
+      letter-spacing: 0.05em;
+    }
+
+    /* SVG chart */
+    #forecast-svg {
+      width: 100%; height: 52px; display: block; overflow: visible;
+    }
+
+    /* Animated draw-on line */
+    .fc-line-hist {
+      fill: none;
+      stroke: var(--accent1);
+      stroke-width: 1.5;
+      stroke-linecap: round; stroke-linejoin: round;
+    }
+    .fc-line-pred {
+      fill: none;
+      stroke: var(--accent2);
+      stroke-width: 1.5;
+      stroke-dasharray: 4 3;
+      stroke-linecap: round; stroke-linejoin: round;
+      animation: dash-march 1.2s linear infinite;
+    }
+    @keyframes dash-march {
+      to { stroke-dashoffset: -14; }
+    }
+    .fc-area {
+      fill: url(#fcGrad);
+      opacity: 0.25;
+    }
+    .fc-dot {
+      fill: var(--accent2);
+      animation: dot-pulse 2s ease-in-out infinite;
+      filter: drop-shadow(0 0 4px var(--accent2));
+    }
+    @keyframes dot-pulse {
+      0%,100% { r: 2.5; opacity: 1; }
+      50%      { r: 4;   opacity: 0.6; }
+    }
+
+    /* Confidence band */
+    .fc-band {
+      fill: rgba(6,182,212,0.06);
+      stroke: rgba(6,182,212,0.12);
+      stroke-width: 0.5;
+    }
+
+    /* Month labels */
+    .fc-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 6.5px; fill: var(--muted);
+      letter-spacing: 0.05em;
+    }
+
+    /* Vertical now-line */
+    .fc-now-line {
+      stroke: rgba(240,171,252,0.4);
+      stroke-width: 1;
+      stroke-dasharray: 2 3;
+    }
+
+    /* Glow sweep on chart */
+    .forecast-strip::after {
+      content: '';
+      position: absolute; top: 0; left: -60%; width: 50%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(124,58,255,0.04), transparent);
+      animation: chart-sweep 4s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes chart-sweep {
+      0%   { left: -60%; }
+      100% { left: 110%; }
+    }
+
+  </style>
+</head>
+
+<body>
+
+<div class="bg-canvas">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+  <div class="orb orb-4"></div>
+
+  <!-- Neural network SVG background -->
+  <svg id="neural-svg" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <radialGradient id="nodeGrad" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#7c3aff" stop-opacity="1"/>
+        <stop offset="100%" stop-color="#7c3aff" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <!-- Will be generated by JS -->
+  </svg>
+</div>
+
+<div class="scanlines"></div>
+<div class="grain"></div>
+<div class="particles" id="particles"></div>
+
+<!-- Data streams -->
+<div class="data-stream" id="data-stream-right"></div>
+<div class="data-stream-left" id="data-stream-left"></div>
+
+<div class="card">
+
+  <!-- Corner accents -->
+  <div class="corner corner-tl"></div>
+  <div class="corner corner-tr"></div>
+  <div class="corner corner-bl"></div>
+  <div class="corner corner-br"></div>
+
+  <!-- Header -->
+  <div class="header-row">
+    <div class="logo-area">
+      <div class="logo-hex">
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="24,2 44,13 44,35 24,46 4,35 4,13"
+            fill="none" stroke="url(#hexGrad)" stroke-width="1.5"/>
+          <polygon points="24,9 38,17 38,31 24,39 10,31 10,17"
+            fill="rgba(124,58,255,0.1)" stroke="rgba(124,58,255,0.3)" stroke-width="1"/>
+          <defs>
+            <linearGradient id="hexGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#7c3aff"/>
+              <stop offset="100%" stop-color="#06b6d4"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <div class="logo-hex-inner">⚡</div>
+      </div>
+      <div class="title-block">
+        <h2>Auth Portal</h2>
+        <div class="subtitle">Sales Forecasting · AI Engine</div>
+      </div>
+    </div>
+    <div class="status-badge">
+      <div class="status-dot"></div>
+      Online
+    </div>
+  </div>
+
+  <div class="divider-row">
+    <div class="divider-line"></div>
+    <div class="divider-label">Neural Auth v2.0</div>
+    <div class="divider-line"></div>
+  </div>
+
+  <!-- 📈 Forecast Mini Chart -->
+  <div class="forecast-strip">
+    <div class="forecast-header">
+      <div class="forecast-title">Q4 Revenue Forecast</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="forecast-delta">▲ +12.4%</span>
+        <span class="forecast-val">$2.8M</span>
+      </div>
+    </div>
+    <svg id="forecast-svg" viewBox="0 0 360 52" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="fcGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#7c3aff" stop-opacity="0.6"/>
+          <stop offset="100%" stop-color="#7c3aff" stop-opacity="0"/>
+        </linearGradient>
+        <linearGradient id="fcLineGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#7c3aff"/>
+          <stop offset="60%" stop-color="#7c3aff"/>
+          <stop offset="100%" stop-color="#06b6d4"/>
+        </linearGradient>
+        <filter id="fcglow">
+          <feGaussianBlur stdDeviation="1.5" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <!-- Confidence band -->
+      <path class="fc-band" d="M216,22 L252,17 L288,11 L324,7 L360,3 L360,20 L324,24 L288,27 L252,30 L216,34 Z"/>
+      <!-- Area fill -->
+      <path class="fc-area" d="M0,46 L36,40 L72,36 L108,30 L144,26 L180,22 L216,28 L216,52 L0,52 Z"/>
+      <!-- Historical line -->
+      <path class="fc-line-hist" filter="url(#fcglow)" stroke="url(#fcLineGrad)" d="M0,46 L36,40 L72,36 L108,30 L144,26 L180,22 L216,28"/>
+      <!-- Forecast dashed -->
+      <path class="fc-line-pred" d="M216,28 L252,22 L288,16 L324,11 L360,7"/>
+      <!-- NOW line -->
+      <line class="fc-now-line" x1="216" y1="2" x2="216" y2="50"/>
+      <text x="218" y="9" class="fc-label" fill="rgba(240,171,252,0.5)">NOW</text>
+      <!-- Animated dot -->
+      <circle class="fc-dot" cx="360" cy="7" r="2.5"/>
+      <!-- Labels -->
+      <text x="0"   y="52" class="fc-label">JUL</text>
+      <text x="68"  y="52" class="fc-label">AUG</text>
+      <text x="140" y="52" class="fc-label">SEP</text>
+      <text x="214" y="52" class="fc-label">OCT</text>
+      <text x="282" y="52" class="fc-label">NOV</text>
+      <text x="340" y="52" class="fc-label">DEC</text>
+    </svg>
+  </div>
+
+  <!-- Metrics row -->
+  <div class="metrics-row">
+    <div class="metric-pill">
+      <div class="metric-val">99.9%</div>
+      <div class="metric-lbl">Uptime</div>
+    </div>
+    <div class="metric-pill">
+      <div class="metric-val">AES256</div>
+      <div class="metric-lbl">Encryption</div>
+    </div>
+    <div class="metric-pill">
+      <div class="metric-val">ML</div>
+      <div class="metric-lbl">Powered</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-login" onclick="switchTab('login')">// Login</button>
+    <button class="tab-btn" id="tab-signup" onclick="switchTab('signup')">// Sign Up</button>
+  </div>
+
+  <!-- Fields -->
+  <div class="field">
+    <label>
+      Email Address
+      <span class="label-line"></span>
+    </label>
+    <div class="field-wrap">
+      <input id="email" type="email" placeholder="you@example.com">
+      <span class="field-icon">✉️</span>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>
+      Password
+      <span class="label-line"></span>
+    </label>
+    <div class="field-wrap">
+      <input id="password" type="password" placeholder="••••••••••">
+      <span class="field-icon" style="left:14px;">🔑</span>
+      <span class="field-icon" style="right:14px; left:auto; cursor:pointer; pointer-events:auto;" onclick="togglePassword()">👁</span>
+    </div>
+  </div>
+
+  <div class="field" id="confirm-field" style="display:none;">
+    <label>
+      Confirm Password
+      <span class="label-line"></span>
+    </label>
+    <div class="field-wrap">
+      <input id="confirm-password" type="password" placeholder="••••••••••">
+      <span class="field-icon" style="left:14px;">🔑</span>
+      <span class="field-icon" style="right:14px; left:auto; cursor:pointer; pointer-events:auto;" onclick="toggleConfirm()">👁</span>
+    </div>
+  </div>
+
+  <div class="field" id="country-field" style="display:none;">
+    <label>
+      Country
+      <span class="label-line"></span>
+    </label>
+    <div class="field-wrap">
+      <select id="country-select" style="width:100%; background:transparent; border:none; color:inherit; font:inherit; padding:12px 40px 12px 40px; outline:none;">
+        <option value="">Loading countries...</option>
+      </select>
+      <span class="field-icon">🌍</span>
+    </div>
+    <div style="font-size:9px; opacity:.5; margin-top:4px; letter-spacing:.03em;">Sets which currency your plan pricing is shown in.</div>
+  </div>
+
+  <div class="btn-row" id="btn-row">
+    <button class="btn-primary" id="main-btn" onclick="login()">Login →</button>
+  </div>
+
+  <!-- Social sign-in — same Firebase project, Google + Apple providers
+       enabled in the Firebase console. Works for both login and signup:
+       Firebase creates the account on first sign-in automatically. -->
+  <div class="social-divider" id="social-divider">
+    <span class="social-divider-line"></span>
+    <span class="social-divider-label">or continue with</span>
+    <span class="social-divider-line"></span>
+  </div>
+  <div class="social-row" id="social-row">
+    <button type="button" class="btn-social" onclick="socialSignIn('google')">
+      <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+        <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
+        <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
+        <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
+        <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
+      </svg>
+      Google
+    </button>
+    <button type="button" class="btn-social" onclick="socialSignIn('apple')">
+      <svg width="16" height="16" viewBox="0 0 384 512" aria-hidden="true" fill="currentColor">
+        <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141 4 184.8 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 37.3 59 128.8 107.2 127.3 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-84 102.6-121.4-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/>
+      </svg>
+      Apple
+    </button>
+  </div>
+
+  <!-- Hidden but functional -->
+  <textarea id="tokenBox" style="display:none;"></textarea>
+  <div id="token-section" style="display:none;"></div>
+  <button id="api-btn" style="display:none;"></button>
+
+  <p id="msg"></p>
+
+  <div class="info-links">
+    <a class="info-link" href="/about">About the Platform</a>
+    <a class="info-link" href="/guide">User Guide</a>
+  </div>
+
+  <div class="footer">
+    <span>Firebase Auth</span>
+    <div class="footer-dot"></div>
+    <span>AES-256</span>
+    <div class="footer-dot"></div>
+    <span>ML Secured</span>
+  </div>
+</div>
+
+<script>
+  /* ══════════════════════════════════════════════
+     ↪️  Post-login redirect — honors ?next=/some/path
+     so pages like /plan-details can send a logged-out
+     visitor here and land them back where they started.
+     Only ever redirects to a same-site path (must start
+     with "/"), never to an external URL.
+  ══════════════════════════════════════════════ */
+  function redirectAfterLogin() {
+    const next = new URLSearchParams(window.location.search).get("next");
+    window.location.href = (next && next.startsWith("/")) ? next : "/dashboard";
+  }
+
+  /* ══════════════════════════════════════════════
+     🧠 Neural Network Background
+  ══════════════════════════════════════════════ */
+  (function buildNeural() {
+    const svg = document.getElementById('neural-svg');
+    const W = 1200, H = 700;
+    const nodes = [];
+    const count = 40;
+
+    // Layers
+    const layers = [5, 8, 10, 8, 5, 4];
+    let allNodes = [];
+    const layerX = [80, 240, 400, 600, 800, 1000, 1120];
+
+    layers.forEach((n, li) => {
+      for (let i = 0; i < n; i++) {
+        const x = layerX[li] + (Math.random() - 0.5) * 30;
+        const y = (H / (n + 1)) * (i + 1) + (Math.random() - 0.5) * 20;
+        allNodes.push({ x, y, li });
+      }
+    });
+
+    // Lines between adjacent layers
+    const colors = ['#7c3aff','#06b6d4','#f0abfc','#34d399','#fb923c'];
+    let svgHTML = '';
+
+    for (let i = 0; i < allNodes.length; i++) {
+      for (let j = i + 1; j < allNodes.length; j++) {
+        const a = allNodes[i], b = allNodes[j];
+        if (Math.abs(a.li - b.li) === 1) {
+          if (Math.random() < 0.45) {
+            const col = colors[Math.floor(Math.random() * colors.length)];
+            const dur = 2 + Math.random() * 4;
+            const delay = Math.random() * 4;
+            svgHTML += `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"
+              stroke="${col}" stroke-width="0.5" stroke-opacity="0.35"
+              style="animation: neural-pulse ${dur}s ${delay}s ease-in-out infinite alternate"/>`;
+          }
+        }
+      }
+    }
+
+    // Nodes
+    allNodes.forEach(n => {
+      const col = colors[Math.floor(Math.random() * colors.length)];
+      const r = 2 + Math.random() * 2;
+      const dur = 1.5 + Math.random() * 3;
+      svgHTML += `<circle cx="${n.x}" cy="${n.y}" r="${r}"
+        fill="${col}" opacity="0.7"
+        style="animation: node-pulse ${dur}s ${Math.random()*3}s ease-in-out infinite alternate"/>`;
+    });
+
+    svg.innerHTML += svgHTML;
+
+    // CSS for neural animations
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes neural-pulse {
+        0%   { stroke-opacity: 0.1; }
+        100% { stroke-opacity: 0.6; }
+      }
+      @keyframes node-pulse {
+        0%   { opacity: 0.3; r: 1.5; }
+        100% { opacity: 0.9; r: 3; }
+      }
+    `;
+    document.head.appendChild(style);
+  })();
+
+  /* ══════════════════════════════════════════════
+     📊 Data Streams
+  ══════════════════════════════════════════════ */
+  (function buildStreams() {
+    const chars = '01アイウエオ∇∑∫αβΔ→←↑↓∞≈⊕⊗∂∈∅≠≤≥';
+    const keywords = ['TRAIN','INFER','LOSS','GRAD','EPOCH','BATCH','LR','ACC','F1','AUC','MSE','RMSE'];
+
+    function makeCol(container, isLeft) {
+      const cols = isLeft ? 3 : 4;
+      const colW = (isLeft ? 160 : 220) / cols;
+      for (let c = 0; c < cols; c++) {
+        const el = document.createElement('div');
+        el.className = isLeft ? 'stream-col-l' : 'stream-col';
+        el.style.left = (c * colW + 10) + 'px';
+        el.style.animationDuration = (10 + Math.random() * 14) + 's';
+        el.style.animationDelay = -(Math.random() * 20) + 's';
+
+        let content = '';
+        for (let i = 0; i < 60; i++) {
+          if (Math.random() < 0.08) {
+            content += keywords[Math.floor(Math.random() * keywords.length)] + '\n';
+          } else {
+            content += chars[Math.floor(Math.random() * chars.length)] + '\n';
+          }
+        }
+        el.style.whiteSpace = 'pre';
+        el.textContent = content;
+        container.appendChild(el);
+      }
+    }
+
+    makeCol(document.getElementById('data-stream-right'), false);
+    makeCol(document.getElementById('data-stream-left'), true);
+  })();
+
+  /* ══════════════════════════════════════════════
+     ⚙️  API Base
+  ══════════════════════════════════════════════ */
+  // Auto-detects whether this page is being served locally or from a real
+  // deployment — same file works either way, no manual edits needed.
+  // Override by opening this file with ?api=https://your-server.com if you
+  // ever need to point it somewhere other than the server that served it.
+  const API_BASE = new URLSearchParams(location.search).get("api") || location.origin;
+
+  /* ══════════════════════════════════════════════
+     🔥  Firebase
+  ══════════════════════════════════════════════ */
+  const firebaseConfig = {
+    apiKey: "AIzaSyBTi0hycT_nCgThOoLDLDfXhCuLWeKcPMU",
+    authDomain: "sales-forecasting-75f26.firebaseapp.com"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+
+  /* ══════════════════════════════════════════════
+     Tab Logic
+  ══════════════════════════════════════════════ */
+  let currentTab = 'login';
+
+  function switchTab(tab) {
+    currentTab = tab;
+    const loginBtn     = document.getElementById('tab-login');
+    const signupBtn    = document.getElementById('tab-signup');
+    const mainBtn      = document.getElementById('main-btn');
+    const tokenSec     = document.getElementById('token-section');
+    const apiBtn       = document.getElementById('api-btn');
+    const confirmField = document.getElementById('confirm-field');
+    const countryField = document.getElementById('country-field');
+    setMsg('');
+
+    if (tab === 'login') {
+      loginBtn.classList.add('active');
+      signupBtn.classList.remove('active');
+      mainBtn.textContent        = 'Login →';
+      mainBtn.onclick            = login;
+      tokenSec.style.display     = 'block';
+      apiBtn.style.display       = 'flex';
+      confirmField.style.display = 'none';
+      countryField.style.display = 'none';
+    } else {
+      signupBtn.classList.add('active');
+      loginBtn.classList.remove('active');
+      mainBtn.textContent        = 'Create Account →';
+      mainBtn.onclick            = signup;
+      tokenSec.style.display     = 'none';
+      apiBtn.style.display       = 'none';
+      confirmField.style.display = 'block';
+      countryField.style.display = 'block';
+      loadCountryOptions();
+    }
+  }
+
+  /* ══════════════════════════════════════════════
+     🌍  Country / currency picker (sign-up only)
+  ══════════════════════════════════════════════ */
+  let _countriesLoaded = false;
+  async function loadCountryOptions() {
+    if (_countriesLoaded) return;
+    const sel = document.getElementById('country-select');
+    try {
+      const res = await fetch(`${API_BASE}/currencies`);
+      const d = await res.json();
+      sel.innerHTML = Object.entries(d.currencies || {}).map(([code, info]) =>
+        `<option value="${code}">${info.label} (${info.currency})</option>`
+      ).join('');
+      _countriesLoaded = true;
+    } catch (err) {
+      sel.innerHTML = `<option value="OTHER">Other / International</option>`;
+    }
+  }
+
+  /* ══════════════════════════════════════════════
+     Particles
+  ══════════════════════════════════════════════ */
+  const pColors   = ['#7c3aff','#06b6d4','#f0abfc','#34d399','rgba(255,255,255,0.6)'];
+  const container = document.getElementById('particles');
+  for (let i = 0; i < 25; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left              = Math.random() * 100 + 'vw';
+    p.style.animationDuration = (10 + Math.random() * 16) + 's';
+    p.style.animationDelay    = (Math.random() * 16) + 's';
+    p.style.background        = pColors[Math.floor(Math.random() * pColors.length)];
+    p.style.width = p.style.height = (1 + Math.random() * 2.5) + 'px';
+    p.style.borderRadius = Math.random() > 0.5 ? '50%' : '1px';
+    container.appendChild(p);
+  }
+
+  /* ══════════════════════════════════════════════
+     Helpers
+  ══════════════════════════════════════════════ */
+  function setMsg(text, type = '') {
+    const el = document.getElementById('msg');
+    el.className = type;
+    el.innerText = text;
+  }
+
+  function setLoading(state) {
+    const btn = document.getElementById('main-btn');
+    btn.disabled    = state;
+    btn.textContent = state
+      ? '⏳ Processing...'
+      : (currentTab === 'login' ? 'Login →' : 'Create Account →');
+  }
+
+  /* ══════════════════════════════════════════════
+     🗄️  Save to MySQL
+  ══════════════════════════════════════════════ */
+  async function saveUserToDB(uid, email, displayName = null) {
+    try {
+      const res = await fetch(`${API_BASE}/internal/register-user`, {
+        method : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body   : JSON.stringify({ uid, email, display_name: displayName }),
+      });
+      if (!res.ok) console.warn('DB warning:', await res.text());
+    } catch (err) {
+      console.error('DB save failed:', err);
+    }
+  }
+
+  async function saveUserCountry(user, country) {
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_BASE}/profile/country`, {
+        method : 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body   : JSON.stringify({ country }),
+      });
+      if (!res.ok) console.warn('Country save warning:', await res.text());
+    } catch (err) {
+      console.error('Country save failed:', err);
+    }
+  }
+
+  /* ══════════════════════════════════════════════
+     ✅  Sign Up
+  ══════════════════════════════════════════════ */
+  async function signup() {
+    const email    = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const confirm  = document.getElementById('confirm-password').value;
+    const country  = document.getElementById('country-select').value || 'OTHER';
+    if (!email || !password || !confirm) { setMsg('❌ Please fill in all fields', 'error'); return; }
+    if (password !== confirm) {
+      setMsg('❌ Passwords do not match', 'error');
+      return;
+    }
+
+    setLoading(true);
+    setMsg('Creating account...', 'loading');
+    try {
+      const cred = await auth.createUserWithEmailAndPassword(email, password);
+      await cred.user.sendEmailVerification();
+      await saveUserToDB(cred.user.uid, cred.user.email, cred.user.displayName);
+      await saveUserCountry(cred.user, country);
+      setMsg('📩 Account created! Check your email to verify.', 'success');
+    } catch (err) {
+      setMsg('❌ ' + err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  /* ══════════════════════════════════════════════
+     🔐  Login
+     Leaving Email empty and typing a password is treated as the
+     developer trial login (see note below) instead of a Firebase
+     login — no separate "continue as developer" link needed.
+  ══════════════════════════════════════════════ */
+async function login() {
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+  const msg = document.getElementById("msg");
+
+  if (!email) {
+    if (!password) { setMsg('❌ Enter a password', 'error'); return; }
+    return devLogin(password);
+  }
+
+  msg.className = "loading";
+  msg.innerText = "Logging in...";
+
+  try {
+    const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
+    const user = userCredential.user;
+
+    // ❗ مهم: تأكد إنه verified
+    if (!user.emailVerified) {
+      msg.className = "error";
+      msg.innerText = "❌ Verify your email first";
+      return;
+    }
+
+    // 🔥 خد token جديد دايمًا
+    const token = await user.getIdToken(true);
+
+    localStorage.setItem("token", token);
+    localStorage.removeItem("devPassword");
+
+    msg.className = "success";
+    msg.innerText = "Login successful";
+
+    redirectAfterLogin();
+
+  } catch (err) {
+    msg.className = "error";
+    msg.innerText = err.message;
+  }
+}
+
+  /* ══════════════════════════════════════════════
+     🔧  Developer trial login (no Firebase account needed)
+     Triggered from login() when Email is left blank — the Password
+     field's value is stored locally and every API call from this page
+     and the dashboard sends it as the X-Dev-Password header instead of
+     a Firebase bearer token. Only works when the backend's
+     DEV_ACCESS_PASSWORD (set to "ahmed2211" in .env) is set AND
+     ENVIRONMENT != production — otherwise the backend rejects it with
+     401 regardless, so it's safe to leave in the page.
+  ══════════════════════════════════════════════ */
+function devLogin(pass) {
+  localStorage.setItem("devPassword", pass);
+  localStorage.removeItem("token"); // dev mode replaces the Firebase token, doesn't mix with it
+  redirectAfterLogin();
+}
+
+  /* ══════════════════════════════════════════════
+     🔵🍎  Social sign-in (Google / Apple via Firebase)
+     Works for both the Login and Sign Up tabs — Firebase creates the
+     account automatically on first sign-in, so there's nothing extra
+     to do for "sign up" vs "log in" here. Requires the Google and
+     Apple providers to be enabled in the Firebase console (done).
+  ══════════════════════════════════════════════ */
+async function socialSignIn(providerName) {
+  const msg = document.getElementById("msg");
+  const buttons = document.querySelectorAll('.btn-social');
+  buttons.forEach(b => b.disabled = true);
+  msg.className = "loading";
+  msg.innerText = "Connecting to " + (providerName === 'google' ? 'Google' : 'Apple') + "...";
+
+  try {
+    const provider = providerName === 'google'
+      ? new firebase.auth.GoogleAuthProvider()
+      : new firebase.auth.OAuthProvider('apple.com');
+
+    const result = await firebase.auth().signInWithPopup(provider);
+    const user = result.user;
+
+    await saveUserToDB(user.uid, user.email, user.displayName);
+
+    const token = await user.getIdToken(true);
+    localStorage.setItem("token", token);
+    localStorage.removeItem("devPassword");
+
+    msg.className = "success";
+    msg.innerText = "Login successful";
+    redirectAfterLogin();
+  } catch (err) {
+    msg.className = "error";
+    msg.innerText = "❌ " + err.message;
+  } finally {
+    buttons.forEach(b => b.disabled = false);
+  }
+}
+
+  function togglePassword() {
+    const input = document.getElementById('password');
+    input.type = input.type === 'password' ? 'text' : 'password';
+  }
+
+  function toggleConfirm() {
+    const input = document.getElementById('confirm-password');
+    input.type = input.type === 'password' ? 'text' : 'password';
+  }
+
+</script>
+</body>
+</html>
