@@ -1,0 +1,50 @@
+# Multi-stage build: keeps the final image to just the installed
+# dependencies + app code, not pip's build cache/wheels.
+
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+# System packages needed to build some Python wheels (psycopg2, etc.) —
+# removed again in the final stage, they're only needed here.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# --- anthropic isn't in every project's requirements.txt yet — add it
+# explicitly here so this Dockerfile works even before you've added it
+# yourself. Safe to remove this line once it's in requirements.txt.
+RUN pip install --no-cache-dir --user anthropic>=0.39.0
+
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# libpq5 (not -dev) is the runtime lib asyncpg/psycopg need — much smaller
+# than the full -dev package pulled in during the build stage above.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /root/.local /root/.local
+ENV PATH=/root/.local/bin:$PATH
+ENV PYTHONUNBUFFERED=1
+
+COPY . .
+
+# The three store-facing HTML panels (admin/store/store-management) are
+# served straight out of this image via StaticFiles — see main.py's
+# settings.admin_panel_dir etc. (defaults to panels/<name> — matches
+# docker-compose.yml's build context, which expects these three folders
+# to exist in the repo root before building).
+
+RUN chmod +x entrypoint.sh
+
+EXPOSE 8000
+
+ENTRYPOINT ["./entrypoint.sh"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,0 +1,27 @@
+# Local development overrides — automatically merged in by `docker compose`
+# whenever this file sits next to docker-compose.yml. Not meant for prod:
+# don't ship this file to your server, or the api container will run
+# --reload against a bind-mounted volume instead of the baked image code.
+#
+# What this does:
+#   - bind-mounts ./app into the container so edits to .py files show up
+#     immediately, no rebuild needed
+#   - runs uvicorn with --reload so the server restarts itself on change
+#   - workers get the same bind mount so worker-side edits are picked up
+#     too (they still need a manual restart — `docker compose restart
+#     order-events-worker` etc. — since they don't run uvicorn --reload)
+
+services:
+  api:
+    volumes:
+      - ./app:/app/app
+      - ./panels:/app/panels
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  order-events-worker:
+    volumes:
+      - ./app:/app/app
+
+  driver-assignment-worker:
+    volumes:
+      - ./app:/app/app

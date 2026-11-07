@@ -1,0 +1,161 @@
+version: "3.9"
+
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+    depends_on:
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+      elasticsearch:
+        condition: service_healthy
+    volumes:
+      # Firebase service account JSON — kept as a mounted file, not baked
+      # into the image, so it's never accidentally committed or shipped
+      # inside a built image layer.
+      - ./firebase-service-account.json:/app/firebase-service-account.json:ro
+
+  # Separate long-running processes for the two workers this app already
+  # has (see workers/order_events_worker.py and
+  # workers/driver_assignment_worker.py) — these are NOT part of the api
+  # container's request/response cycle, they need to run continuously.
+  order-events-worker:
+    build: .
+    restart: unless-stopped
+    command: python -m workers.order_events_worker
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
+    depends_on:
+      - postgres
+      - rabbitmq
+    volumes:
+      - ./firebase-service-account.json:/app/firebase-service-account.json:ro
+
+  driver-assignment-worker:
+    build: .
+    restart: unless-stopped
+    command: python -m workers.driver_assignment_worker
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    volumes:
+      - ./firebase-service-account.json:/app/firebase-service-account.json:ro
+
+  # Runs scheduled connector syncs (see workers/connector_sync_worker.py) —
+  # checks every 60s which connectors are due based on
+  # sync_frequency_minutes, pulls, and upserts. Separate from the api
+  # container so a slow/hanging source system (a bad database connector,
+  # an unresponsive REST API) can't add latency to actual customer
+  # requests — it only ever blocks this one process.
+
+  refill-reminder-worker:
+    build: .
+    restart: unless-stopped
+    command: python -m workers.refill_reminder_worker
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    depends_on:
+      - postgres
+    volumes:
+      - ./firebase-service-account.json:/app/firebase-service-account.json:ro
+
+
+
+
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      # Bound to 127.0.0.1 only — reachable via `psql -h 127.0.0.1` for
+      # local debugging (or an SSH tunnel on a real server), but NOT
+      # reachable from the public internet. The api/worker containers
+      # reach this over Docker's internal network regardless of this
+      # mapping, so removing it entirely also works if you never need to
+      # psql in directly from the host.
+      - "127.0.0.1:5433:5432"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      # Management UI bound to 127.0.0.1 only. On a real server, view it
+      # via an SSH tunnel: `ssh -L 15672:127.0.0.1:15672 you@your-server`
+      # then open http://127.0.0.1:15672 on your own machine.
+      - "127.0.0.1:15672:15672"
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    ports:
+      # Bound to 127.0.0.1 only. This node still runs with
+      # xpack.security.enabled=false (no login required at all) — that's
+      # only acceptable because it's now unreachable from outside the
+      # host. The api container still reaches it fine over Docker's
+      # internal network with no port mapping needed at all; keep this
+      # only if you want `curl localhost:9200` for local debugging.
+      - "127.0.0.1:9200:9200"
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  es_data:
+
+

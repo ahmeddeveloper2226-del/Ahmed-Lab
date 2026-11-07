@@ -1,0 +1,27 @@
+fastapi
+uvicorn[standard]
+pydantic-settings
+sqlalchemy[asyncio]
+asyncpg
+alembic
+redis
+elasticsearch>=8.13,<9
+aio-pika
+firebase-admin
+python-multipart
+slowapi
+httpx
+pytest
+pytest-asyncio
+requests
+aiosmtplib
+httpx
+cryptography
+openpyxl
+aiohttp
+email-validator
+# Powers ai_assistant_service.py, meal_builder_service.py, and
+# cross_restaurant_meal_builder_service.py — was missing entirely before
+# this was caught by trying to actually run their tests; without it none
+# of those three features can start up in production.
+anthropic
