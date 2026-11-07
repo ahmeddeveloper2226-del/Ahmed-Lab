@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="/assets/js/device-boot.js"></script>
+<title>مسارك</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/tokens.css">
+<link rel="stylesheet" href="/assets/css/base.css">
+<link rel="stylesheet" href="/assets/css/components.css">
+<link rel="stylesheet" href="/assets/css/animations.css">
+<style>
+  .plan-day-group { margin-bottom: var(--sp-5); }
+  .plan-task-row { display:flex; align-items:center; gap: var(--sp-3); padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .plan-task-row:last-child { border-bottom:none; }
+  .empty-state { text-align:center; padding: var(--sp-7) var(--sp-4); }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <nav class="tab-bar" id="tabBar"></nav>
+    <main class="app-main page-enter">
+      <header class="top-bar" style="position:static;background:transparent;padding-inline:0">
+        <h1 data-i18n="study_plan.title"></h1>
+        <button class="btn btn-ghost btn-sm" id="regenerateBtn" style="display:none" data-i18n="study_plan.regenerate"></button>
+      </header>
+      <p class="text-muted" data-i18n="study_plan.subtitle"></p>
+      <div id="planContent" style="margin-top:var(--sp-5)"></div>
+    </main>
+  </div>
+  <script type="module" src="/assets/js/page-study-plan.js"></script>
+</body>
+</html>

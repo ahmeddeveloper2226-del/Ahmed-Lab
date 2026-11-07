@@ -1,0 +1,14 @@
+{
+  "name": "مسارك — Masark",
+  "short_name": "مسارك",
+  "start_url": "/home.html",
+  "display": "standalone",
+  "background_color": "#FBFEFD",
+  "theme_color": "#14B8A2",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    { "src": "/assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

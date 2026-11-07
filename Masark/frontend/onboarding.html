@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="/assets/js/device-boot.js"></script>
+<title>مسارك</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/tokens.css">
+<link rel="stylesheet" href="/assets/css/base.css">
+<link rel="stylesheet" href="/assets/css/components.css">
+<link rel="stylesheet" href="/assets/css/animations.css">
+<style>
+  .onb-shell { max-width: 560px; margin-inline: auto; padding: var(--sp-5) var(--sp-4) var(--sp-7); }
+  .onb-top { display:flex; align-items:center; justify-content:space-between; margin-bottom: var(--sp-5); }
+  .onb-step { display: none; } .onb-step.active { display: block; animation: page-in 320ms var(--ease-out) both; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
+  .subject-card { border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: var(--sp-4); margin-bottom: var(--sp-3); }
+  .subject-card-head { display:flex; align-items:center; justify-content:space-between; }
+  .lecture-pick-row { display:flex; align-items:center; gap: var(--sp-3); padding: 8px 0; border-bottom: 1px solid var(--border); font-size: var(--fs-small); }
+  .lecture-pick-row:last-child { border-bottom: none; }
+  .pack-option { display:flex; align-items:center; gap: var(--sp-3); padding: 12px; border: 1.5px solid var(--border); border-radius: var(--radius-md); margin-bottom: var(--sp-2); }
+  .pack-option.selected { border-color: var(--brand-400); background: var(--brand-50); }
+</style>
+</head>
+<body>
+  <div class="onb-shell">
+    <div class="onb-top">
+      <span class="wordmark">مسارك</span>
+      <div class="step-dots" id="stepDots"></div>
+    </div>
+
+    <!-- Step 1: personal info -->
+    <section class="onb-step active" data-step="0">
+      <h1 data-i18n="onboarding.title"></h1>
+      <div style="margin-top:var(--sp-5)">
+        <div class="field"><label data-i18n="onboarding.full_name"></label><input class="input" id="fullName" required></div>
+        <div class="two-col">
+          <div class="field"><label data-i18n="onboarding.age"></label><input class="input" id="age" type="number" min="8" max="25" required></div>
+          <div class="field"><label data-i18n="onboarding.phone"></label><input class="input" id="phone" type="tel" required></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 2: academic level/year -->
+    <section class="onb-step" data-step="1">
+      <h1 data-i18n="onboarding.level"></h1>
+      <div class="chip-group" id="levelChips" style="margin-top:var(--sp-4)">
+        <button class="chip selected" data-value="prep" data-i18n="onboarding.level.prep"></button>
+        <button class="chip" data-value="secondary" data-i18n="onboarding.level.secondary"></button>
+      </div>
+      <h1 style="margin-top:var(--sp-6)" data-i18n="onboarding.year"></h1>
+      <div class="chip-group" id="yearChips" style="margin-top:var(--sp-4)">
+        <button class="chip selected" data-value="year_1" data-i18n="onboarding.year.1"></button>
+        <button class="chip" data-value="year_2" data-i18n="onboarding.year.2"></button>
+        <button class="chip" data-value="year_3" data-i18n="onboarding.year.3"></button>
+      </div>
+    </section>
+
+    <!-- Step 3: availability -->
+    <section class="onb-step" data-step="2">
+      <h1 data-i18n="onboarding.availability.title"></h1>
+      <div style="margin-top:var(--sp-5)">
+        <div class="field">
+          <label data-i18n="onboarding.availability.weekday"></label>
+          <input class="input" id="weekdayHours" type="number" min="0" max="16" step="0.5" value="3">
+        </div>
+        <div class="field">
+          <label data-i18n="onboarding.availability.weekend"></label>
+          <input class="input" id="weekendHours" type="number" min="0" max="16" step="0.5" value="5">
+        </div>
+        <div class="field">
+          <label data-i18n="onboarding.availability.off_days"></label>
+          <div class="chip-group" id="offDaysChips"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 4: subjects -->
+    <section class="onb-step" data-step="3">
+      <h1 data-i18n="onboarding.subjects.title"></h1>
+      <div id="subjectsList" style="margin-top:var(--sp-4)"></div>
+      <button class="btn btn-outline btn-block" id="addSubjectBtn" data-i18n="onboarding.subjects.add"></button>
+    </section>
+
+    <div style="display:flex; gap: var(--sp-3); margin-top:var(--sp-6)">
+      <button class="btn btn-ghost" id="backBtn" data-i18n="onboarding.back" style="display:none"></button>
+      <button class="btn btn-primary btn-block" id="nextBtn" data-i18n="onboarding.continue"></button>
+    </div>
+  </div>
+
+  <!-- Add-subject panel (shown as an overlay sheet) -->
+  <div id="addSubjectSheet" style="display:none; position:fixed; inset:0; z-index:80; background:rgba(0,0,0,.35)">
+    <div style="position:absolute; bottom:0; inset-inline:0; max-height:88vh; overflow-y:auto; background:var(--bg-card); border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: var(--sp-5)">
+      <div id="addSubjectContent"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/assets/js/page-onboarding.js"></script>
+</body>
+</html>

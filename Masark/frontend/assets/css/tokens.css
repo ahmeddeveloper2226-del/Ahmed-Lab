@@ -1,0 +1,167 @@
+/* ==========================================================================
+   مسارك (Masark) — Design tokens
+   --------------------------------------------------------------------------
+   Palette: a turquoise-to-white gradient world (as briefed), kept out of
+   "SaaS teal" cliché by pairing it with a warm off-white (not pure white)
+   and a deep ink-teal for text instead of black. Green/red are reserved
+   ONLY for progress status (>=50% / <50%) so they stay meaningful signals,
+   never decorative.
+   Type: Cairo throughout (headings + body, Arabic + Latin) — one geometric,
+   contemporary family that treats both scripts as first-class, set with a
+   deliberate scale rather than default browser sizes.
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* --- Brand: turquoise → foam → ink --- */
+  --brand-50:  #EFFEFB;
+  --brand-100: #D3FBF3;
+  --brand-200: #A6F5E7;
+  --brand-300: #6FE9D6;
+  --brand-400: #34D3BE;
+  --brand-500: #14B8A2;   /* primary */
+  --brand-600: #0D9488;
+  --brand-700: #0B7A73;
+  --brand-800: #0A5F5C;
+  --brand-900: #083F3F;
+
+  --ink-900: #0B2027;     /* body text on light */
+  --ink-700: #23434A;
+  --ink-500: #547479;
+  --ink-300: #93AEB1;
+
+  --surface-0: #FBFEFD;   /* app background — warm off-white, not #fff */
+  --surface-1: #FFFFFF;   /* cards */
+  --surface-2: #F1FBF8;   /* subtle recessed panels */
+  --surface-border: #DCEFEA;
+
+  /* --- Status (charts / progress only) --- */
+  --status-good: #12A96B;
+  --status-good-bg: #E5F8EE;
+  --status-bad: #E5484D;
+  --status-bad-bg: #FDECEC;
+
+  /* --- Semantic aliases --- */
+  --bg: var(--surface-0);
+  --bg-card: var(--surface-1);
+  --bg-recessed: var(--surface-2);
+  --border: var(--surface-border);
+  --text: var(--ink-900);
+  --text-muted: var(--ink-500);
+  --accent: var(--brand-500);
+  --accent-strong: var(--brand-700);
+  --on-accent: #FFFFFF;
+
+  --gradient-hero: linear-gradient(135deg, #FFFFFF 0%, #EAFBF7 45%, #A6F5E7 100%);
+  --gradient-brand: linear-gradient(135deg, var(--brand-400), var(--brand-700));
+
+  /* --- Type --- */
+  --font-display: 'Cairo', 'Segoe UI', sans-serif;
+  --font-body: 'Cairo', 'Segoe UI', sans-serif;
+
+  --fs-display: clamp(2.25rem, 5vw + 1rem, 3.5rem);
+  --fs-h1: clamp(1.75rem, 3vw + 1rem, 2.25rem);
+  --fs-h2: 1.375rem;
+  --fs-h3: 1.125rem;
+  --fs-body: 1rem;
+  --fs-small: 0.875rem;
+  --fs-tiny: 0.75rem;
+
+  --lh-tight: 1.2;
+  --lh-normal: 1.55;
+
+  /* --- Spacing (4px base) --- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+  --sp-8: 64px;
+
+  /* --- Radii / shadow --- */
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(11, 32, 39, 0.06);
+  --shadow-md: 0 8px 24px -8px rgba(11, 32, 39, 0.16);
+  --shadow-brand: 0 12px 28px -10px rgba(20, 184, 162, 0.45);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 160ms;
+  --dur-base: 280ms;
+  --dur-slow: 620ms;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* --- Dark theme --- */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ink-900: #EAF6F4;
+  --ink-700: #C3DAD7;
+  --ink-500: #8FADA9;
+  --ink-300: #547479;
+
+  --surface-0: #08161A;
+  --surface-1: #0E2226;
+  --surface-2: #123030;
+  --surface-border: #1B3C3C;
+
+  --status-good: #35D089;
+  --status-good-bg: #10301F;
+  --status-bad: #FF6B6F;
+  --status-bad-bg: #3A1416;
+
+  --bg: var(--surface-0);
+  --bg-card: var(--surface-1);
+  --bg-recessed: var(--surface-2);
+  --border: var(--surface-border);
+  --text: var(--ink-900);
+  --text-muted: var(--ink-500);
+  --accent: var(--brand-400);
+  --accent-strong: var(--brand-300);
+  --on-accent: #04201E;
+
+  --gradient-hero: linear-gradient(135deg, #0E2226 0%, #0B3230 55%, #0D4B45 100%);
+  --shadow-md: 0 8px 28px -10px rgba(0, 0, 0, 0.55);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ink-900: #EAF6F4;
+    --ink-700: #C3DAD7;
+    --ink-500: #8FADA9;
+    --ink-300: #547479;
+    --surface-0: #08161A;
+    --surface-1: #0E2226;
+    --surface-2: #123030;
+    --surface-border: #1B3C3C;
+    --status-good: #35D089;
+    --status-good-bg: #10301F;
+    --status-bad: #FF6B6F;
+    --status-bad-bg: #3A1416;
+    --bg: var(--surface-0);
+    --bg-card: var(--surface-1);
+    --bg-recessed: var(--surface-2);
+    --border: var(--surface-border);
+    --text: var(--ink-900);
+    --text-muted: var(--ink-500);
+    --accent: var(--brand-400);
+    --accent-strong: var(--brand-300);
+    --on-accent: #04201E;
+    --gradient-hero: linear-gradient(135deg, #0E2226 0%, #0B3230 55%, #0D4B45 100%);
+    --shadow-md: 0 8px 28px -10px rgba(0, 0, 0, 0.55);
+  }
+}
+
+/* ===== v2 additions: aurora + glass ===== */
+:root{--aurora-1:#7CF2DE;--aurora-2:#C4B5FF;--aurora-3:#FFC9E0;--glass:rgba(255,255,255,.64);--glass-border:rgba(255,255,255,.75);--spring:cubic-bezier(.34,1.56,.64,1);--radius-lg:28px;--radius-md:20px;--shadow-md:0 18px 40px -18px rgba(13,148,136,.38)}
+:root[data-theme="dark"]{--aurora-1:#0D6B62;--aurora-2:#3B2E7A;--aurora-3:#5A2447;--glass:rgba(14,34,38,.62);--glass-border:rgba(255,255,255,.09)}

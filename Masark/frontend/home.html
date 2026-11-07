@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="/assets/js/device-boot.js"></script>
+<title>مسارك</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/tokens.css">
+<link rel="stylesheet" href="/assets/css/base.css">
+<link rel="stylesheet" href="/assets/css/components.css">
+<link rel="stylesheet" href="/assets/css/animations.css">
+</head>
+<body>
+  <div class="app-shell">
+    <nav class="tab-bar" id="tabBar"></nav>
+    <main class="app-main">
+      <div class="bento stagger">
+        <a href="/motivate.html" class="verse-card b-verse" style="--i:1">
+          <strong data-i18n="nav.motivate"></strong>
+          <p id="motivateTeaserText"></p>
+        </a>
+        <section class="card b-donut" style="--i:2">
+          <h3 data-i18n="home.overall_progress"></h3>
+          <div class="donut-wrap"><div class="donut" id="overallDonut"><span class="donut-label" id="overallLabel">0%</span></div></div>
+          <p id="overallCounts" class="text-small text-muted"></p>
+        </section>
+        <section class="card b-bars" style="--i:3">
+          <h3 data-i18n="home.subject_progress"></h3>
+          <div class="bars" id="subjectBars"></div>
+        </section>
+      </div>
+
+      <section class="cal">
+        <div class="cal-head">
+          <h2 data-i18n="home.calendar"></h2>
+          <a class="btn btn-ghost btn-sm" href="/lectures.html" data-i18n="cal.open_full"></a>
+        </div>
+        <div id="calMount"></div>
+      </section>
+    </main>
+  </div>
+  <script type="module" src="/assets/js/page-home.js"></script>
+</body>
+</html>

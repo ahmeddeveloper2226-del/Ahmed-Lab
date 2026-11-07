@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="/assets/js/device-boot.js"></script>
+<title>مسارك</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/tokens.css">
+<link rel="stylesheet" href="/assets/css/base.css">
+<link rel="stylesheet" href="/assets/css/components.css">
+<link rel="stylesheet" href="/assets/css/animations.css">
+<style>
+  .motivate-quote-text { font-size: var(--fs-h2); font-weight: 700; line-height: 1.7; }
+  .motivate-source { margin-top: var(--sp-3); }
+  .stat-grid { display:grid; grid-template-columns: repeat(3,1fr); gap: var(--sp-3); margin-top: var(--sp-5); }
+  .stat-tile { text-align:center; padding: var(--sp-4); }
+  .stat-num { font-size: var(--fs-h1); font-weight:800; font-family: var(--font-display); }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <nav class="tab-bar" id="tabBar"></nav>
+    <main class="app-main page-enter">
+      <h1 data-i18n="motivate.title"></h1>
+
+      <div class="motivate-card" style="margin-top:var(--sp-5)">
+        <div id="quoteBox">
+          <p class="motivate-quote-text motivate-text" id="quoteText"></p>
+          <p class="text-small text-muted motivate-source" id="quoteSource"></p>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:var(--sp-3)">
+        <span class="text-tiny text-muted" id="nextInLabel"></span>
+        <button class="btn btn-ghost btn-sm" id="nextQuoteBtn">↻</button>
+      </div>
+
+      <div class="stat-grid">
+        <div class="card-soft stat-tile">
+          <div class="stat-num" id="statDone">-</div>
+          <div class="text-tiny text-muted" data-i18n="home.done"></div>
+        </div>
+        <div class="card-soft stat-tile">
+          <div class="stat-num" id="statLeft">-</div>
+          <div class="text-tiny text-muted" data-i18n="home.left"></div>
+        </div>
+        <div class="card-soft stat-tile">
+          <div class="stat-num" id="statPercent">-</div>
+          <div class="text-tiny text-muted" data-i18n="home.overall_progress"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script type="module" src="/assets/js/page-motivate.js"></script>
+</body>
+</html>
