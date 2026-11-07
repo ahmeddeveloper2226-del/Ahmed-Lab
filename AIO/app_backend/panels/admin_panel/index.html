@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>لوحة إدارة السائقين</title>
+<style>
+  * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
+  body { margin: 0; background: #F8FAFC; color: #1E293B; }
+  .container { max-width: 720px; margin: 0 auto; padding: 24px; }
+  .card { background: white; border-radius: 16px; padding: 24px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); margin-bottom: 20px; }
+  h1 { font-size: 22px; margin: 0 0 20px; }
+  h2 { font-size: 16px; margin: 0 0 16px; color: #334155; }
+  label { display: block; font-size: 13px; color: #64748B; margin-bottom: 6px; }
+  input { width: 100%; padding: 12px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 15px; margin-bottom: 14px; }
+  button { background: #2563EB; color: white; border: none; border-radius: 10px; padding: 12px 20px; font-size: 15px; cursor: pointer; }
+  button:hover { background: #1D4ED8; }
+  button.secondary { background: #E2E8F0; color: #334155; }
+  button.danger { background: #EF4444; }
+  button:disabled { background: #94A3B8; cursor: not-allowed; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: right; padding: 10px 8px; border-bottom: 1px solid #F1F5F9; }
+  th { color: #64748B; font-weight: 600; font-size: 12px; }
+  .badge { padding: 3px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; }
+  .badge.active { background: #D1FAE5; color: #059669; }
+  .badge.inactive { background: #FEE2E2; color: #DC2626; }
+  .error { color: #EF4444; font-size: 14px; margin-bottom: 12px; }
+  .hidden { display: none; }
+  #topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  #topbar button { padding: 8px 16px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Login view — just a password, checked directly against the backend. -->
+  <div id="loginView" class="card">
+    <h1>لوحة إدارة السائقين</h1>
+    <div id="loginError" class="error hidden"></div>
+    <label>كلمة المرور</label>
+    <input type="password" id="passwordInput" placeholder="••••••••" />
+    <button id="loginBtn" style="width:100%">دخول</button>
+  </div>
+
+  <!-- Main dashboard -->
+  <div id="mainView" class="hidden">
+    <div id="topbar">
+      <h1 style="margin:0">لوحة إدارة السائقين</h1>
+      <button class="secondary" id="logoutBtn">تسجيل الخروج</button>
+    </div>
+
+    <div class="card">
+      <h2>إضافة سائق جديد</h2>
+      <div id="addDriverError" class="error hidden"></div>
+      <label>الاسم (للعرض فقط — لا يُستخدم لتسجيل الدخول)</label>
+      <input type="text" id="fullNameInput" placeholder="اسم السائق" />
+      <label>رقم الهاتف — هذا هو الرقم الذي سيسجل به السائق دخوله بالضبط</label>
+      <input type="tel" id="phoneInput" placeholder="+201234567890" />
+      <button id="addDriverBtn">إضافة السائق</button>
+    </div>
+
+    <div class="card">
+      <h2>السائقون</h2>
+      <div id="driversError" class="error hidden"></div>
+      <table>
+        <thead>
+          <tr>
+            <th>الاسم</th>
+            <th>رقم الهاتف</th>
+            <th>الحالة</th>
+            <th>طلبات نشطة</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="driversTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Empty string = same-origin relative requests. Since this page is now
+  // served BY the backend itself (see main.py's StaticFiles mount), this
+  // never needs to be filled in — it always calls whatever host/port
+  // you're currently viewing this page on.
+  const API_BASE_URL = "";
+
+  // Stored only in memory for this tab's session — never written to
+  // localStorage/cookies, so closing the tab requires re-entering it.
+  let adminPassword = null;
+
+  const loginView = document.getElementById('loginView');
+  const mainView = document.getElementById('mainView');
+  const loginError = document.getElementById('loginError');
+  const addDriverError = document.getElementById('addDriverError');
+  const driversError = document.getElementById('driversError');
+
+  function showError(el, message) {
+    el.textContent = message;
+    el.classList.remove('hidden');
+  }
+  function hideError(el) {
+    el.classList.add('hidden');
+  }
+
+  async function apiFetch(path, options = {}) {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Secret': adminPassword,
+        ...(options.headers || {}),
+      },
+    });
+    if (!response.ok) {
+      let detail = `HTTP ${response.status}`;
+      try {
+        const body = await response.json();
+        detail = body.detail || detail;
+      } catch (_) {}
+      throw new Error(detail);
+    }
+    if (response.status === 204) return null;
+    return response.json();
+  }
+
+  document.getElementById('loginBtn').addEventListener('click', async () => {
+    hideError(loginError);
+    const password = document.getElementById('passwordInput').value;
+    if (!password) return;
+
+    // Verify the password by actually calling a real protected endpoint —
+    // there's no separate "login" endpoint, the password IS the credential
+    // sent on every request (see apiFetch above).
+    adminPassword = password;
+    try {
+      await apiFetch('/admin/drivers');
+      loginView.classList.add('hidden');
+      mainView.classList.remove('hidden');
+      await loadDrivers();
+    } catch (e) {
+      adminPassword = null;
+      showError(loginError, 'كلمة المرور غير صحيحة.');
+    }
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    adminPassword = null;
+    document.getElementById('passwordInput').value = '';
+    mainView.classList.add('hidden');
+    loginView.classList.remove('hidden');
+  });
+
+  document.getElementById('addDriverBtn').addEventListener('click', async () => {
+    hideError(addDriverError);
+    const fullName = document.getElementById('fullNameInput').value.trim();
+    const phone = document.getElementById('phoneInput').value.trim();
+
+    if (!fullName || fullName.length < 2) {
+      showError(addDriverError, 'يرجى إدخال اسم صحيح.');
+      return;
+    }
+    if (!phone || phone.length < 8) {
+      showError(addDriverError, 'يرجى إدخال رقم هاتف صحيح (بالصيغة الدولية، مثال: +2010xxxxxxxx).');
+      return;
+    }
+
+    const btn = document.getElementById('addDriverBtn');
+    btn.disabled = true;
+    btn.textContent = 'جاري الإضافة...';
+    try {
+      await apiFetch('/admin/drivers', {
+        method: 'POST',
+        body: JSON.stringify({ full_name: fullName, phone_number: phone }),
+      });
+      document.getElementById('fullNameInput').value = '';
+      document.getElementById('phoneInput').value = '';
+      await loadDrivers();
+    } catch (e) {
+      showError(addDriverError, e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'إضافة السائق';
+    }
+  });
+
+  async function loadDrivers() {
+    hideError(driversError);
+    const tbody = document.getElementById('driversTableBody');
+    tbody.innerHTML = '<tr><td colspan="5">جاري التحميل...</td></tr>';
+    try {
+      const drivers = await apiFetch('/admin/drivers');
+      if (drivers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5">لا يوجد سائقون بعد</td></tr>';
+        return;
+      }
+      tbody.innerHTML = drivers.map(d => `
+        <tr>
+          <td>${escapeHtml(d.full_name || '—')}</td>
+          <td>${escapeHtml(d.phone_number || '—')}</td>
+          <td><span class="badge ${d.is_active ? 'active' : 'inactive'}">${d.is_active ? 'نشط' : 'موقوف'}</span></td>
+          <td>${d.active_order_count}</td>
+          <td>
+            <button class="${d.is_active ? 'danger' : ''}" onclick="toggleActive('${d.driver_id}', ${!d.is_active})">
+              ${d.is_active ? 'إيقاف' : 'تفعيل'}
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      showError(driversError, e.message);
+      tbody.innerHTML = '';
+    }
+  }
+
+  async function toggleActive(driverId, newActiveState) {
+    try {
+      await apiFetch(`/admin/drivers/${driverId}/active`, {
+        method: 'PATCH',
+        body: JSON.stringify({ is_active: newActiveState }),
+      });
+      await loadDrivers();
+    } catch (e) {
+      showError(driversError, e.message);
+    }
+  }
+  window.toggleActive = toggleActive; // exposed for the inline onclick handlers above
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+</script>
+
+</body>
+</html>

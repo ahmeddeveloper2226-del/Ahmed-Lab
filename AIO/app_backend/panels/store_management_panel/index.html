@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>لوحة إدارة الطلبات — المتجر</title>
+<style>
+  * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
+  body { margin: 0; background: #F8FAFC; color: #1E293B; }
+  .container { max-width: 900px; margin: 0 auto; padding: 24px; }
+  .card { background: white; border-radius: 16px; padding: 24px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); margin-bottom: 20px; }
+  h1 { font-size: 22px; margin: 0 0 20px; }
+  h2 { font-size: 16px; margin: 0 0 16px; color: #334155; }
+  label { display: block; font-size: 13px; color: #64748B; margin-bottom: 6px; }
+  input, select { width: 100%; padding: 12px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 15px; margin-bottom: 14px; font-family: inherit; }
+  button { background: #2563EB; color: white; border: none; border-radius: 10px; padding: 12px 20px; font-size: 15px; cursor: pointer; }
+  button:hover { background: #1D4ED8; }
+  button.secondary { background: #E2E8F0; color: #334155; }
+  button.small { padding: 6px 12px; font-size: 13px; }
+  button:disabled { background: #94A3B8; cursor: not-allowed; }
+  .error { color: #EF4444; font-size: 14px; margin-bottom: 12px; }
+  .hidden { display: none; }
+  #topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  #topbar button { padding: 8px 16px; font-size: 13px; }
+  .order-card { padding: 16px; border-radius: 12px; background: #F8FAFC; margin-bottom: 12px; }
+  .order-card .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .order-card .id { font-size: 12px; color: #94A3B8; }
+  .order-card .total { font-weight: 700; color: #2563EB; }
+  .order-card .items { font-size: 13px; color: #475569; margin-bottom: 10px; }
+  .order-card .items div { padding: 2px 0; }
+  .status-badge { display: inline-block; padding: 3px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; }
+  .status-pending { background: #FEF3C7; color: #92400E; }
+  .status-preparing { background: #DBEAFE; color: #1E40AF; }
+  .status-out_for_delivery { background: #E0E7FF; color: #4338CA; }
+  .status-delivered { background: #DCFCE7; color: #166534; }
+  .status-cancelled { background: #FEE2E2; color: #991B1B; }
+  .actions { display: flex; gap: 8px; }
+  .empty { text-align: center; color: #94A3B8; padding: 40px 0; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tabs button { background: #E2E8F0; color: #334155; }
+  .tabs button.active { background: #2563EB; color: white; }
+  .rx-card { padding: 16px; border-radius: 12px; background: #F8FAFC; margin-bottom: 12px; }
+  .rx-card img { width: 100%; max-height: 240px; object-fit: contain; border-radius: 8px; background: white; margin-bottom: 10px; cursor: pointer; }
+  .rx-item-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #E2E8F0; font-size: 13px; }
+  .rx-item-row:last-child { border-bottom: none; }
+  .status-pending_review { background: #FEF3C7; color: #92400E; }
+  .status-awaiting_customer_approval { background: #DBEAFE; color: #1E40AF; }
+  .status-approved { background: #DCFCE7; color: #166534; }
+  .status-rejected { background: #FEE2E2; color: #991B1B; }
+  .rx-product-picker { margin-top: 12px; padding: 12px; background: white; border-radius: 10px; border: 1px solid #E2E8F0; }
+  .rx-product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; max-height: 320px; overflow-y: auto; }
+  .rx-product-card { border: 1px solid #E2E8F0; border-radius: 10px; padding: 8px; text-align: center; }
+  .rx-product-card img { width: 100%; height: 70px; object-fit: cover; border-radius: 6px; margin-bottom: 6px; }
+  .rx-product-card-noimg { width: 100%; height: 70px; display: flex; align-items: center; justify-content: center; background: #F8FAFC; border-radius: 6px; margin-bottom: 6px; font-size: 11px; color: #94A3B8; }
+  .rx-product-card-name { font-size: 12px; font-weight: 600; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rx-product-card-price { font-size: 11px; color: #64748B; margin-bottom: 6px; }
+
+  /* --- Dashboard --- */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 8px; }
+  .kpi-card { background: #F8FAFC; border-radius: 12px; padding: 14px; }
+  .kpi-card .label { font-size: 12px; color: #64748B; margin-bottom: 6px; }
+  .kpi-card .value { font-size: 20px; font-weight: 800; color: #1E293B; }
+  .kpi-card .value.negative { color: #DC2626; }
+  .dash-section-title { font-size: 14px; font-weight: 700; color: #334155; margin: 18px 0 10px; }
+  .dash-subtabs { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+  .dash-subtabs button { padding: 6px 12px; font-size: 12.5px; background: #F1F5F9; color: #475569; }
+  .dash-subtabs button.active { background: #2563EB; color: white; }
+  .rank-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #F1F5F9; font-size: 13px; }
+  .rank-row:last-child { border-bottom: none; }
+  .rank-row .bar-wrap { flex: 1; background: #F1F5F9; border-radius: 6px; height: 8px; margin: 0 10px; overflow: hidden; }
+  .rank-row .bar { height: 100%; background: #2563EB; border-radius: 6px; }
+  .rank-row .bar.warn { background: #F59E0B; }
+  .rank-row .bar.danger { background: #EF4444; }
+  .pill-tag { display: inline-block; padding: 2px 8px; border-radius: 8px; font-size: 11px; font-weight: 600; background: #FEE2E2; color: #991B1B; }
+  .pill-tag.low { background: #FEF3C7; color: #92400E; }
+  .review-card { padding: 12px 0; border-bottom: 1px solid #F1F5F9; }
+  .review-card:last-child { border-bottom: none; }
+  .review-stars { color: #F59E0B; font-size: 13px; }
+  .review-reply { background: #F8FAFC; border-radius: 10px; padding: 10px; margin-top: 8px; font-size: 12.5px; }
+  .review-reply-form { display: flex; gap: 6px; margin-top: 8px; }
+  .review-reply-form input { margin-bottom: 0; }
+  .advisor-card { background: linear-gradient(135deg, #EFF6FF, #F0FDF4); border-radius: 14px; padding: 16px; margin-bottom: 20px; }
+  .advisor-greeting { font-weight: 700; margin-bottom: 8px; }
+  .advisor-rec { display: flex; gap: 8px; padding: 8px 0; font-size: 13.5px; align-items: flex-start; }
+  .advisor-rec::before { content: "✨"; }
+  .empty-mini { color: #94A3B8; font-size: 12.5px; padding: 10px 0; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Login view — shop_id + the password set for that specific shop
+       (see AdminShopCreateRequest.password in the admin panel). Not the
+       same password as the admin panel itself. -->
+  <div id="loginView" class="card">
+    <h1>لوحة إدارة الطلبات</h1>
+    <div id="loginError" class="error hidden"></div>
+    <label>معرّف المتجر (Shop ID)</label>
+    <input type="text" id="shopIdInput" placeholder="أدخل معرّف متجرك" />
+    <label>كلمة المرور</label>
+    <input type="password" id="passwordInput" placeholder="••••••••" />
+    <button id="loginBtn" style="width:100%">دخول</button>
+  </div>
+
+  <!-- Orders / Prescriptions view -->
+  <div id="ordersView" class="hidden">
+    <div id="topbar">
+      <h1 id="shopNameTitle" style="margin:0"></h1>
+      <div style="display:flex; gap:8px;">
+        <button class="secondary small" id="refreshBtn">تحديث</button>
+        <button class="secondary small" id="logoutBtn">تسجيل الخروج</button>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button id="ordersTabBtn" class="active">الطلبات</button>
+      <button id="prescriptionsTabBtn" class="secondary hidden">الروشتات</button>
+      <button id="dashboardTabBtn" class="secondary">لوحة الأداء</button>
+    </div>
+
+    <div class="card" id="ordersPanel">
+      <h2>الطلبات الواردة</h2>
+      <div id="ordersError" class="error hidden"></div>
+      <div id="ordersList"></div>
+    </div>
+
+    <div class="card hidden" id="prescriptionsPanel">
+      <h2>الروشتات</h2>
+      <div id="prescriptionsError" class="error hidden"></div>
+      <div id="prescriptionsList"></div>
+    </div>
+
+    <!-- Business Dashboard — see dashboard_router.py's endpoints in
+         store_management_router.py. Sections load independently so one
+         failing (e.g. AI advisor rate-limited) never blanks the rest. -->
+    <div class="hidden" id="dashboardPanel">
+      <div id="dashboardError" class="error hidden"></div>
+
+      <div class="advisor-card" id="advisorCard">
+        <div class="advisor-greeting" id="advisorGreeting">جارِ التحميل...</div>
+        <div id="advisorRecs"></div>
+      </div>
+
+      <div class="card">
+        <h2>نظرة عامة</h2>
+        <div class="kpi-grid" id="overviewGrid"></div>
+      </div>
+
+      <!-- Branch Management — a shop with zero branches works exactly as
+           before this existed; adding one here is what turns on
+           per-branch stock and nearest-branch selection for customers. -->
+      <div class="card">
+        <h2>الفروع</h2>
+        <div id="branchesList"></div>
+        <button class="secondary small" id="addBranchBtn" style="margin-top:10px;">+ إضافة فرع جديد</button>
+
+        <div id="addBranchForm" class="hidden" style="margin-top:12px;">
+          <label>اسم الفرع</label>
+          <input type="text" id="branchName" placeholder="مثال: فرع المعادي" />
+          <label>العنوان</label>
+          <input type="text" id="branchAddress" />
+          <div style="display:flex; gap:8px;">
+            <div style="flex:1;">
+              <label>خط العرض (lat)</label>
+              <input type="text" id="branchLat" placeholder="30.0131" />
+            </div>
+            <div style="flex:1;">
+              <label>خط الطول (lng)</label>
+              <input type="text" id="branchLng" placeholder="31.2089" />
+            </div>
+          </div>
+          <label>رقم الهاتف (اختياري)</label>
+          <input type="text" id="branchPhone" />
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <button id="saveBranchBtn" style="flex:1">حفظ الفرع</button>
+            <button class="secondary" id="cancelBranchBtn" style="flex:0 0 auto;">إلغاء</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>تحليلات المبيعات</h2>
+        <div class="dash-subtabs" id="salesPeriodTabs">
+          <button data-period="daily" class="active">يومي</button>
+          <button data-period="weekly">أسبوعي</button>
+          <button data-period="monthly">شهري</button>
+          <button data-period="yearly">سنوي</button>
+        </div>
+        <div id="salesChart"></div>
+      </div>
+
+      <div class="card">
+        <h2>المنتجات</h2>
+        <div class="dash-section-title">الأكثر مبيعًا</div>
+        <div id="bestSellingList"></div>
+        <div class="dash-section-title">الأقل مبيعًا</div>
+        <div id="lowestSellingList"></div>
+        <div class="dash-section-title">نفدت الكمية</div>
+        <div id="outOfStockList"></div>
+        <div class="dash-section-title">كمية منخفضة</div>
+        <div id="lowStockList"></div>
+        <div class="dash-section-title">منتجات مخفية</div>
+        <div id="hiddenProductsList"></div>
+      </div>
+
+      <div class="card">
+        <h2>رؤى المخزون (آخر 30 يوم)</h2>
+        <div class="dash-section-title">بطيئة الحركة</div>
+        <div id="slowMovingList"></div>
+        <div class="dash-section-title">مرتفعة الطلب</div>
+        <div id="highDemandList"></div>
+      </div>
+
+      <div class="card">
+        <h2>العملاء</h2>
+        <div class="kpi-grid" id="customersGrid"></div>
+        <div class="dash-section-title">أفضل العملاء</div>
+        <div id="topCustomersList"></div>
+      </div>
+
+      <div class="card">
+        <h2>التقييمات والمراجعات</h2>
+        <div class="kpi-grid" id="reviewsSummaryGrid"></div>
+        <div id="reviewsList"></div>
+      </div>
+
+      <div class="card">
+        <h2>التقارير المالية</h2>
+        <div class="dash-subtabs" id="financialsPeriodTabs">
+          <button data-period="daily">يومي</button>
+          <button data-period="weekly">أسبوعي</button>
+          <button data-period="monthly" class="active">شهري</button>
+          <button data-period="yearly">سنوي</button>
+        </div>
+        <div class="kpi-grid" id="financialsGrid"></div>
+      </div>
+
+      <!-- Payouts & Invoices — see payout_service.py: real numbers, but
+           actual money transfer via Paymob isn't wired up yet (needs
+           Disbursement API access this project doesn't have). Every
+           payout shown here sits in "قيد الانتظار" (pending) until
+           that's connected — this is stated plainly in the UI too. -->
+      <div class="card">
+        <h2>المدفوعات والفواتير</h2>
+        <div id="payoutNotice" style="background:#FFFBEB; border-radius:10px; padding:10px 12px; font-size:12px; color:#92400E; margin-bottom:14px;">
+          الصرف الفعلي للأموال غير مفعّل بعد على المنصة — الأرقام هنا حقيقية ومحسوبة من طلباتك الفعلية، لكنها تنتظر ربط بوابة الصرف.
+        </div>
+
+        <div class="dash-section-title">حساب الاستلام</div>
+        <div id="payoutAccountView"></div>
+        <button class="secondary small" id="editPayoutAccountBtn" style="margin-top:8px;">تعديل بيانات الحساب</button>
+
+        <div id="payoutAccountForm" class="hidden" style="margin-top:12px;">
+          <label>نوع الحساب</label>
+          <select id="payoutDestType" style="width:100%; padding:10px; border-radius:10px; border:1px solid #E2E8F0; margin-bottom:10px;">
+            <option value="bank_account">حساب بنكي</option>
+            <option value="mobile_wallet">محفظة موبايل</option>
+          </select>
+          <label>اسم صاحب الحساب</label>
+          <input type="text" id="payoutHolderName" />
+          <label>رقم الحساب / المحفظة</label>
+          <input type="text" id="payoutAccountNumber" />
+          <label id="bankNameLabel">اسم البنك</label>
+          <input type="text" id="payoutBankName" />
+          <button id="savePayoutAccountBtn" style="width:100%">حفظ</button>
+        </div>
+
+        <div class="dash-section-title">الدفعة القادمة (تقديرية)</div>
+        <div class="kpi-grid" id="nextPayoutGrid"></div>
+
+        <div class="dash-section-title">سجل المدفوعات</div>
+        <div id="payoutHistoryList"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Full-size image viewer for tapping a prescription thumbnail -->
+<div id="imageModal" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:100; align-items:center; justify-content:center; padding:20px;" onclick="closeImageModal()">
+  <img id="imageModalImg" src="" style="max-width:100%; max-height:100%; border-radius:8px;" />
+</div>
+
+<script>
+  const API_BASE_URL = ""; // Same-origin, served via the FastAPI StaticFiles mount (see main.py).
+
+  let shopId = null;
+  let storePassword = null;
+
+  const loginView = document.getElementById('loginView');
+  const ordersView = document.getElementById('ordersView');
+  const loginError = document.getElementById('loginError');
+  const ordersError = document.getElementById('ordersError');
+
+  function showError(el, msg) { el.textContent = msg; el.classList.remove('hidden'); }
+  function hideError(el) { el.classList.add('hidden'); }
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str ?? '';
+    return div.innerHTML;
+  }
+
+  const STATUS_LABELS = {
+    pending: 'قيد الانتظار',
+    preparing: 'قيد التحضير',
+    out_for_delivery: 'في الطريق للتوصيل',
+    delivered: 'تم التوصيل',
+    cancelled: 'ملغي',
+  };
+
+  async function apiFetch(path, options = {}) {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shop-Id': shopId,
+        'X-Store-Password': storePassword,
+        ...(options.headers || {}),
+      },
+    });
+    if (!response.ok) {
+      let detail = `HTTP ${response.status}`;
+      try { const body = await response.json(); detail = body.detail || detail; } catch (_) {}
+      throw new Error(detail);
+    }
+    if (response.status === 204) return null;
+    return response.json();
+  }
+
+  // --- Login -----------------------------------------------------------
+  // Uses a dedicated /login call purely for a clean error message before
+  // switching views. The real gate on every following request is still
+  // the X-Shop-Id / X-Store-Password headers sent above — there is no
+  // token or session to expire, the panel just keeps re-sending the
+  // credentials it already asked for once (in memory only, not stored,
+  // so a refresh always asks again).
+  document.getElementById('loginBtn').addEventListener('click', async () => {
+    hideError(loginError);
+    const idValue = document.getElementById('shopIdInput').value.trim();
+    const passwordValue = document.getElementById('passwordInput').value;
+    if (!idValue || !passwordValue) { showError(loginError, 'يرجى إدخال معرّف المتجر وكلمة المرور.'); return; }
+
+    const btn = document.getElementById('loginBtn');
+    btn.disabled = true;
+    try {
+      const response = await fetch(`${API_BASE_URL}/store-management/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop_id: idValue, password: passwordValue }),
+      });
+      if (!response.ok) {
+        let detail = 'معرّف المتجر أو كلمة المرور غير صحيحة.';
+        try { const body = await response.json(); detail = body.detail || detail; } catch (_) {}
+        throw new Error(detail);
+      }
+      const data = await response.json();
+      shopId = idValue;
+      storePassword = passwordValue;
+      document.getElementById('shopNameTitle').textContent = data.shop_name;
+
+      // Prescriptions tab is pharmacy-only — the backend also enforces
+      // this on every request (see _require_pharmacy_shop), this is just
+      // so a grocery/clothes/etc store owner never even sees the tab.
+      if (data.category_id === 'pharmacies') {
+        prescriptionsTabBtn.classList.remove('hidden');
+      } else {
+        prescriptionsTabBtn.classList.add('hidden');
+        if (currentTab === 'prescriptions') activateTab('orders');
+      }
+
+      loginView.classList.add('hidden');
+      ordersView.classList.remove('hidden');
+      await loadOrders();
+    } catch (e) {
+      showError(loginError, e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    shopId = null;
+    storePassword = null;
+    document.getElementById('passwordInput').value = '';
+    ordersView.classList.add('hidden');
+    loginView.classList.remove('hidden');
+  });
+
+  document.getElementById('refreshBtn').addEventListener('click', () => {
+    if (currentTab === 'orders') loadOrders();
+    else if (currentTab === 'prescriptions') loadPrescriptions();
+    else loadDashboard();
+  });
+
+  // --- Tabs ----------------------------------------------------------------
+  let currentTab = 'orders';
+  const ordersTabBtn = document.getElementById('ordersTabBtn');
+  const prescriptionsTabBtn = document.getElementById('prescriptionsTabBtn');
+  const dashboardTabBtn = document.getElementById('dashboardTabBtn');
+  const ordersPanel = document.getElementById('ordersPanel');
+  const prescriptionsPanel = document.getElementById('prescriptionsPanel');
+  const dashboardPanel = document.getElementById('dashboardPanel');
+
+  function activateTab(tab) {
+    currentTab = tab;
+    [ordersTabBtn, prescriptionsTabBtn, dashboardTabBtn].forEach(btn => {
+      btn.classList.remove('active'); btn.classList.add('secondary');
+    });
+    [ordersPanel, prescriptionsPanel, dashboardPanel].forEach(panel => panel.classList.add('hidden'));
+
+    if (tab === 'orders') { ordersTabBtn.classList.add('active'); ordersTabBtn.classList.remove('secondary'); ordersPanel.classList.remove('hidden'); loadOrders(); }
+    if (tab === 'prescriptions') { prescriptionsTabBtn.classList.add('active'); prescriptionsTabBtn.classList.remove('secondary'); prescriptionsPanel.classList.remove('hidden'); loadPrescriptions(); }
+    if (tab === 'dashboard') { dashboardTabBtn.classList.add('active'); dashboardTabBtn.classList.remove('secondary'); dashboardPanel.classList.remove('hidden'); loadDashboard(); }
+  }
+
+  ordersTabBtn.addEventListener('click', () => activateTab('orders'));
+  prescriptionsTabBtn.addEventListener('click', () => activateTab('prescriptions'));
+  dashboardTabBtn.addEventListener('click', () => activateTab('dashboard'));
+
+  function openImageModal(url) {
+    document.getElementById('imageModalImg').src = url;
+    const modal = document.getElementById('imageModal');
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+  }
+  function closeImageModal() {
+    const modal = document.getElementById('imageModal');
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+  }
+  window.openImageModal = openImageModal;
+  window.closeImageModal = closeImageModal;
+
+  // --- Prescriptions ---------------------------------------------------------
+
+  const PRESCRIPTION_STATUS_LABELS = {
+    pending_review: 'بانتظار المراجعة',
+    awaiting_customer_approval: 'بانتظار موافقة العميل',
+    approved: 'تمت الموافقة',
+    rejected: 'مرفوضة',
+    cancelled: 'ملغاة',
+  };
+
+  let _productsCache = null;
+  async function getOwnProducts() {
+    if (_productsCache) return _productsCache;
+    _productsCache = await apiFetch('/store-management/products');
+    return _productsCache;
+  }
+
+  async function loadPrescriptions() {
+    hideError(document.getElementById('prescriptionsError'));
+    const container = document.getElementById('prescriptionsList');
+    container.innerHTML = 'جاري التحميل...';
+    try {
+      const [prescriptions] = await Promise.all([
+        apiFetch('/store-management/prescriptions'),
+        getOwnProducts().catch(() => []), // pre-warm the cache; non-fatal if it fails
+      ]);
+      if (prescriptions.length === 0) {
+        container.innerHTML = '<div class="empty">لا توجد روشتات بعد</div>';
+        return;
+      }
+      container.innerHTML = prescriptions.map(p => renderPrescriptionCard(p)).join('');
+    } catch (e) {
+      showError(document.getElementById('prescriptionsError'), e.message);
+      container.innerHTML = '';
+    }
+  }
+
+  function renderPrescriptionCard(p) {
+    const canEdit = p.status === 'pending_review';
+    const isFinished = ['approved', 'rejected', 'cancelled'].includes(p.status);
+    const products = _productsCache || [];
+    return `
+      <div class="rx-card">
+        <img src="${p.image_url}" onclick="openImageModal('${p.image_url}')" />
+        <div class="head" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span class="id" style="font-size:12px; color:#94A3B8;">#${p.id.slice(0, 8)} — ${new Date(p.created_at).toLocaleString('ar-EG')}</span>
+          <span class="status-badge status-${p.status}">${PRESCRIPTION_STATUS_LABELS[p.status] || p.status}</span>
+        </div>
+        <div class="items">
+          ${p.items.map(it => `
+            <div class="rx-item-row">
+              <span>${it.name} — ${it.price} ج.م${!it.included ? ' (تمت إزالته من قبل العميل)' : ''}</span>
+              ${canEdit ? `
+                <div style="display:flex; gap:6px; align-items:center;">
+                  <input type="number" min="1" value="${it.quantity}" id="rx-edit-qty-${p.id}-${it.id}" style="margin-bottom:0; width:55px; padding:6px;" />
+                  <button class="small secondary" onclick="updatePrescriptionItem('${p.id}', '${it.id}')">تحديث</button>
+                  <button class="small secondary" onclick="removePrescriptionItem('${p.id}', '${it.id}')">حذف</button>
+                </div>
+              ` : `<span>الكمية: ${it.quantity}</span>`}
+            </div>
+          `).join('') || '<div class="empty" style="padding:12px 0;">لا توجد أدوية مضافة بعد</div>'}
+        </div>
+        ${canEdit ? `
+          <button class="small" style="margin-top:12px;" onclick="toggleProductPicker('${p.id}')">+ إضافة دواء من منتجاتك</button>
+          <div id="rx-picker-${p.id}" class="hidden rx-product-picker">
+            <input type="text" placeholder="ابحث عن منتج..." oninput="filterProductPicker('${p.id}', this.value)" style="margin-bottom:10px;" />
+            <div id="rx-picker-grid-${p.id}" class="rx-product-grid">
+              ${renderProductPickerGrid(p.id, products)}
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:14px;">
+            <button onclick="submitPrescription('${p.id}')">إرسال القائمة للعميل</button>
+            <button class="secondary" onclick="rejectPrescription('${p.id}')">رفض الروشتة</button>
+          </div>
+        ` : ''}
+        ${isFinished ? `
+          <button class="small secondary" style="margin-top:12px;" onclick="deletePrescription('${p.id}')">إزالة من القائمة</button>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  // Shows the pharmacist's own catalog exactly like the customer sees it —
+  // image, name, price, stock — instead of a bare dropdown. This is what
+  // replaced the old "type in a medicine name/price" freeform entry: every
+  // item added here is a real Product row, so it's guaranteed to be
+  // addable to the customer's cart on approval (see PrescriptionItem's
+  // docstring in the backend for the full reasoning).
+  function renderProductPickerGrid(prescriptionId, products) {
+    if (products.length === 0) {
+      return '<div class="empty" style="padding:12px 0;">لا توجد منتجات في متجرك بعد — أضفها من لوحة الإدارة أولاً</div>';
+    }
+    return products.map(pr => `
+      <div class="rx-product-card" data-name="${escapeHtml(pr.name).toLowerCase()}">
+        ${pr.image_url
+          ? `<img src="${pr.image_url}" />`
+          : `<div class="rx-product-card-noimg">لا توجد صورة</div>`}
+        <div class="rx-product-card-name">${escapeHtml(pr.name)}</div>
+        <div class="rx-product-card-price">${pr.price} ج.م${pr.stock_quantity <= 0 ? ' — نفدت الكمية' : ''}</div>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <input type="number" min="1" value="1" id="rx-qty-${prescriptionId}-${pr.id}" style="margin-bottom:0; width:55px; padding:6px;" />
+          <button class="small" onclick="addPrescriptionItem('${prescriptionId}', '${pr.id}')">إضافة</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function toggleProductPicker(prescriptionId) {
+    document.getElementById(`rx-picker-${prescriptionId}`).classList.toggle('hidden');
+  }
+  window.toggleProductPicker = toggleProductPicker;
+
+  function filterProductPicker(prescriptionId, query) {
+    const q = query.trim().toLowerCase();
+    const grid = document.getElementById(`rx-picker-grid-${prescriptionId}`);
+    grid.querySelectorAll('.rx-product-card').forEach(card => {
+      card.style.display = card.dataset.name.includes(q) ? '' : 'none';
+    });
+  }
+  window.filterProductPicker = filterProductPicker;
+
+  async function addPrescriptionItem(prescriptionId, productId) {
+    hideError(document.getElementById('prescriptionsError'));
+    const qtyInput = document.getElementById(`rx-qty-${prescriptionId}-${productId}`);
+    const quantity = parseInt(qtyInput.value, 10) || 1;
+
+    try {
+      await apiFetch(`/store-management/prescriptions/${prescriptionId}/items`, {
+        method: 'POST',
+        body: JSON.stringify({ product_id: productId, quantity }),
+      });
+      await loadPrescriptions();
+    } catch (e) {
+      showError(document.getElementById('prescriptionsError'), e.message);
+    }
+  }
+  window.addPrescriptionItem = addPrescriptionItem;
+
+  async function removePrescriptionItem(prescriptionId, itemId) {
+    try {
+      await apiFetch(`/store-management/prescriptions/${prescriptionId}/items/${itemId}`, { method: 'DELETE' });
+      await loadPrescriptions();
+    } catch (e) {
+      showError(document.getElementById('prescriptionsError'), e.message);
+    }
+  }
+  window.removePrescriptionItem = removePrescriptionItem;
+
+  async function updatePrescriptionItem(prescriptionId, itemId) {
+    hideError(document.getElementById('prescriptionsError'));
+    const qtyInput = document.getElementById(`rx-edit-qty-${prescriptionId}-${itemId}`);
+    const quantity = parseInt(qtyInput.value, 10) || 1;
+    try {
+      await apiFetch(`/store-management/prescriptions/${prescriptionId}/items/${itemId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ quantity }),
+      });
+      await loadPrescriptions();
+    } catch (e) {
+      showError(document.getElementById('prescriptionsError'), e.message);
+    }
+  }
+  window.updatePrescriptionItem = updatePrescriptionItem;
+
+  async function deletePrescription(prescriptionId) {
+    if (!confirm('هل تريد إزالة هذه الروشتة من القائمة؟ هذا الإجراء لا يمكن التراجع عنه.')) return;
+    hideError(document.getElementById('prescriptionsError'));
+    try {
+      await apiFetch(`/store-management/prescriptions/${prescriptionId}`, { method: 'DELETE' });
+      await loadPrescriptions();
+    } catch (e) {
+      showError(document.getElementById('prescriptionsError'), e.message);
+    }
+  }
+  window.deletePrescription = deletePrescription;
+
+  async function submitPrescription(prescriptionId) {
+    try {
+      await apiFetch(`/store-management/prescriptions/${prescriptionId}/submit`, { method: 'POST' });
+      await loadPrescriptions();
+    } catch (e) {
+      showError(document.getElementById('prescriptionsError'), e.message);
+    }
+  }
+  window.submitPrescription = submitPrescription;
+
+  async function rejectPrescription(prescriptionId) {
+    if (!confirm('هل أنت متأكد من رفض هذه الروشتة؟')) return;
+    try {
+      await apiFetch(`/store-management/prescriptions/${prescriptionId}/reject`, { method: 'POST' });
+      await loadPrescriptions();
+    } catch (e) {
+      showError(document.getElementById('prescriptionsError'), e.message);
+    }
+  }
+  window.rejectPrescription = rejectPrescription;
+
+
+  // --- Orders ------------------------------------------------------------
+
+  async function loadOrders() {
+    hideError(ordersError);
+    const container = document.getElementById('ordersList');
+    container.innerHTML = 'جاري التحميل...';
+    try {
+      const orders = await apiFetch('/store-management/orders');
+      if (orders.length === 0) {
+        container.innerHTML = '<div class="empty">لا توجد طلبات بعد</div>';
+        return;
+      }
+      container.innerHTML = orders.map(o => `
+        <div class="order-card">
+          <div class="head">
+            <span class="id">#${o.id.slice(0, 8)} — ${new Date(o.created_at).toLocaleString('ar-EG')}</span>
+            <span class="status-badge status-${o.status}">${STATUS_LABELS[o.status] || o.status}</span>
+          </div>
+          <div class="items">
+            ${o.items.map(it => `<div>${it.quantity} × ${it.product_id} — ${it.price_at_purchase} ج.م</div>`).join('')}
+          </div>
+          <div class="head">
+            <span class="total">${o.total} ج.م</span>
+            <div class="actions">
+              ${o.status === 'pending' ? `<button class="small" onclick="advanceOrder('${o.id}', 'preparing')">بدء التحضير</button>` : ''}
+              ${o.status === 'preparing' ? `<button class="small" onclick="advanceOrder('${o.id}', 'out_for_delivery')">جاهز للتوصيل</button>` : ''}
+            </div>
+          </div>
+        </div>
+      `).join('');
+    } catch (e) {
+      showError(ordersError, e.message);
+      container.innerHTML = '';
+    }
+  }
+
+  async function advanceOrder(orderId, newStatus) {
+    hideError(ordersError);
+    try {
+      await apiFetch(`/store-management/orders/${orderId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: newStatus }),
+      });
+      await loadOrders();
+    } catch (e) {
+      showError(ordersError, e.message);
+    }
+  }
+  window.advanceOrder = advanceOrder;
+
+  // ─────────────────────────────────────────────────────────────────────
+  //  Business Dashboard
+  //  Every section fetches independently and fails independently — one
+  //  section erroring (e.g. the AI advisor being rate-limited) never
+  //  blanks the rest of the dashboard. Numbers rendered here are exactly
+  //  what dashboard_router.py returns — nothing is computed client-side.
+  // ─────────────────────────────────────────────────────────────────────
+
+  function money(n) { return `${Number(n).toLocaleString('ar-EG', { maximumFractionDigits: 2 })} ج.م`; }
+
+  function kpiCard(label, value, negative) {
+    return `<div class="kpi-card"><div class="label">${escapeHtml(label)}</div><div class="value${negative ? ' negative' : ''}">${escapeHtml(String(value))}</div></div>`;
+  }
+
+  function rankList(items, valueKey, labelKey, barClass) {
+    if (!items || items.length === 0) return '<div class="empty-mini">لا توجد بيانات كافية بعد.</div>';
+    const max = Math.max(...items.map(i => Number(i[valueKey]) || 0), 1);
+    return items.map(i => {
+      const val = Number(i[valueKey]) || 0;
+      const pct = Math.max(4, Math.round((val / max) * 100));
+      return `<div class="rank-row">
+        <span>${escapeHtml(i[labelKey])}</span>
+        <div class="bar-wrap"><div class="bar ${barClass || ''}" style="width:${pct}%"></div></div>
+        <strong>${val}</strong>
+      </div>`;
+    }).join('');
+  }
+
+  function simpleNameList(items, extraFn) {
+    if (!items || items.length === 0) return '<div class="empty-mini">لا توجد عناصر.</div>';
+    return items.map(i => `<div class="rank-row"><span>${escapeHtml(i.name)}</span>${extraFn ? extraFn(i) : ''}</div>`).join('');
+  }
+
+  async function loadDashboardSection(loaderFn) {
+    try { await loaderFn(); } catch (e) { /* section-local errors are shown inline by each loader below */ }
+  }
+
+  async function loadAdvisor() {
+    const el = document.getElementById('advisorGreeting');
+    const recsEl = document.getElementById('advisorRecs');
+    try {
+      const data = await apiFetch('/store-management/dashboard/growth-advisor');
+      el.textContent = data.greeting || 'أهلاً بيك!';
+      recsEl.innerHTML = (data.recommendations || []).map(r => `<div class="advisor-rec">${escapeHtml(r)}</div>`).join('') || '<div class="empty-mini">لا توجد توصيات الآن.</div>';
+    } catch (e) {
+      el.textContent = 'مستشار النمو';
+      recsEl.innerHTML = `<div class="empty-mini">تعذر تحميل التوصيات الآن.</div>`;
+    }
+  }
+
+  async function loadOverview() {
+    const grid = document.getElementById('overviewGrid');
+    try {
+      const d = await apiFetch('/store-management/dashboard/overview');
+      grid.innerHTML = [
+        kpiCard('إيرادات اليوم', money(d.today_revenue)),
+        kpiCard('طلبات اليوم', d.today_orders),
+        kpiCard('متوسط قيمة الطلب', money(d.average_order_value)),
+        kpiCard('نسبة العملاء العائدين', `${d.returning_customer_rate}%`),
+        kpiCard('طلبات ملغاة اليوم', d.cancelled_orders_today, d.cancelled_orders_today > 0),
+        kpiCard('مشاهدات المنتجات اليوم', d.today_product_views),
+        kpiCard('معدل التحويل', d.conversion_rate !== null ? `${d.conversion_rate}%` : '—'),
+      ].join('');
+    } catch (e) {
+      grid.innerHTML = `<div class="empty-mini">تعذر تحميل النظرة العامة.</div>`;
+    }
+  }
+
+  // --- Branch Management -----------------------------------------------
+  let editingBranchId = null; // null while adding a new branch, otherwise the branch being edited
+
+  async function loadBranches() {
+    const listEl = document.getElementById('branchesList');
+    try {
+      const branches = await apiFetch('/store-management/branches');
+      listEl.innerHTML = branches.length
+        ? branches.map(b => `
+            <div class="rank-row" data-branch-id="${escapeHtml(b.id)}">
+              <span>${escapeHtml(b.name)}${b.address ? ` — ${escapeHtml(b.address)}` : ''}</span>
+              <span style="display:flex; align-items:center; gap:8px;">
+                <span class="pill-tag ${b.is_active ? '' : 'low'}">${b.is_active ? 'نشط' : 'غير نشط'}</span>
+                <button class="secondary small branch-edit-btn" data-branch-id="${escapeHtml(b.id)}">تعديل</button>
+                <button class="secondary small branch-delete-btn" data-branch-id="${escapeHtml(b.id)}">حذف</button>
+              </span>
+            </div>`).join('')
+        : '<div class="empty-mini">لا توجد فروع مضافة — متجرك يعمل حاليًا كموقع واحد.</div>';
+
+      listEl.querySelectorAll('.branch-edit-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const branch = branches.find(b => b.id === btn.dataset.branchId);
+          if (branch) openBranchFormForEdit(branch);
+        });
+      });
+      listEl.querySelectorAll('.branch-delete-btn').forEach(btn => {
+        btn.addEventListener('click', () => deleteBranch(btn.dataset.branchId));
+      });
+    } catch (e) {
+      listEl.innerHTML = '<div class="empty-mini">تعذر تحميل الفروع.</div>';
+    }
+  }
+
+  function openBranchFormForAdd() {
+    editingBranchId = null;
+    document.getElementById('branchName').value = '';
+    document.getElementById('branchAddress').value = '';
+    document.getElementById('branchLat').value = '';
+    document.getElementById('branchLng').value = '';
+    document.getElementById('branchPhone').value = '';
+    document.getElementById('saveBranchBtn').textContent = 'حفظ الفرع';
+    document.getElementById('addBranchForm').classList.remove('hidden');
+  }
+
+  function openBranchFormForEdit(branch) {
+    editingBranchId = branch.id;
+    document.getElementById('branchName').value = branch.name || '';
+    document.getElementById('branchAddress').value = branch.address || '';
+    document.getElementById('branchLat').value = branch.lat ?? '';
+    document.getElementById('branchLng').value = branch.lng ?? '';
+    document.getElementById('branchPhone').value = branch.phone || '';
+    document.getElementById('saveBranchBtn').textContent = 'حفظ التعديلات';
+    document.getElementById('addBranchForm').classList.remove('hidden');
+    document.getElementById('addBranchForm').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function closeBranchForm() {
+    editingBranchId = null;
+    document.getElementById('addBranchForm').classList.add('hidden');
+  }
+
+  async function deleteBranch(branchId) {
+    if (!confirm('هل أنت متأكد من حذف هذا الفرع؟ لن يظهر بعد الآن للعملاء.')) return;
+    try {
+      await apiFetch(`/store-management/branches/${branchId}`, { method: 'DELETE' });
+      if (editingBranchId === branchId) closeBranchForm();
+      await loadBranches();
+    } catch (e) {
+      alert(e.message || 'تعذر حذف الفرع.');
+    }
+  }
+
+  document.getElementById('addBranchBtn').addEventListener('click', () => {
+    if (!document.getElementById('addBranchForm').classList.contains('hidden') && editingBranchId === null) {
+      closeBranchForm();
+    } else {
+      openBranchFormForAdd();
+    }
+  });
+
+  document.getElementById('cancelBranchBtn').addEventListener('click', closeBranchForm);
+
+  document.getElementById('saveBranchBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('saveBranchBtn');
+    const lat = parseFloat(document.getElementById('branchLat').value);
+    const lng = parseFloat(document.getElementById('branchLng').value);
+    const name = document.getElementById('branchName').value.trim();
+    if (!name || isNaN(lat) || isNaN(lng)) {
+      alert('اكتب اسم الفرع وخط العرض وخط الطول بشكل صحيح');
+      return;
+    }
+    btn.disabled = true;
+    try {
+      const payload = {
+        name,
+        address: document.getElementById('branchAddress').value.trim() || null,
+        lat, lng,
+        phone: document.getElementById('branchPhone').value.trim() || null,
+      };
+      if (editingBranchId) {
+        await apiFetch(`/store-management/branches/${editingBranchId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await apiFetch('/store-management/branches', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      }
+      closeBranchForm();
+      await loadBranches();
+    } catch (e) {
+      alert(e.message || 'تعذر حفظ الفرع.');
+      // Form stays open with entered values so the merchant can retry.
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  let currentSalesPeriod = 'daily';
+  async function loadSalesAnalytics() {
+    const el = document.getElementById('salesChart');
+    try {
+      const rows = await apiFetch(`/store-management/dashboard/sales-analytics?period=${currentSalesPeriod}`);
+      if (!rows || rows.length === 0) { el.innerHTML = '<div class="empty-mini">لا توجد بيانات مبيعات لهذه الفترة بعد.</div>'; return; }
+      const max = Math.max(...rows.map(r => r.revenue), 1);
+      el.innerHTML = rows.map(r => `
+        <div class="rank-row">
+          <span>${escapeHtml(r.period)}</span>
+          <div class="bar-wrap"><div class="bar" style="width:${Math.max(4, Math.round((r.revenue / max) * 100))}%"></div></div>
+          <strong>${money(r.revenue)}</strong>
+        </div>`).join('');
+    } catch (e) {
+      el.innerHTML = '<div class="empty-mini">تعذر تحميل تحليلات المبيعات.</div>';
+    }
+  }
+
+  document.querySelectorAll('#salesPeriodTabs button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#salesPeriodTabs button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentSalesPeriod = btn.dataset.period;
+      loadSalesAnalytics();
+    });
+  });
+
+  async function toggleProductActive(productId, makeActive, btn) {
+    btn.disabled = true;
+    try {
+      await apiFetch(`/store-management/products/${productId}/active`, {
+        method: 'PATCH',
+        body: JSON.stringify({ is_active: makeActive }),
+      });
+      await loadProductInsights();
+    } catch (e) {
+      btn.disabled = false;
+    }
+  }
+  window.toggleProductActive = toggleProductActive;
+
+  async function loadProductInsights() {
+    const els = {
+      best: document.getElementById('bestSellingList'),
+      worst: document.getElementById('lowestSellingList'),
+      oos: document.getElementById('outOfStockList'),
+      low: document.getElementById('lowStockList'),
+      hidden: document.getElementById('hiddenProductsList'),
+    };
+    try {
+      const d = await apiFetch('/store-management/dashboard/products');
+      els.best.innerHTML = rankList(d.best_selling, 'units_sold', 'name');
+      els.worst.innerHTML = rankList(d.lowest_selling, 'units_sold', 'name', 'warn');
+      els.oos.innerHTML = d.out_of_stock.length
+        ? d.out_of_stock.map(p => `<div class="rank-row"><span>${escapeHtml(p.name)}</span><span class="pill-tag">نفد</span></div>`).join('')
+        : '<div class="empty-mini">لا توجد منتجات نافدة 🎉</div>';
+      els.low.innerHTML = d.low_stock.length
+        ? d.low_stock.map(p => `<div class="rank-row"><span>${escapeHtml(p.name)}</span><span class="pill-tag low">${p.stock_quantity} متبقي</span></div>`).join('')
+        : '<div class="empty-mini">لا توجد منتجات منخفضة الكمية.</div>';
+      els.hidden.innerHTML = d.hidden_or_inactive.length
+        ? d.hidden_or_inactive.map(p => `<div class="rank-row"><span>${escapeHtml(p.name)}</span><button class="small" onclick="toggleProductActive('${p.id}', true, this)">إظهار</button></div>`).join('')
+        : '<div class="empty-mini">لا توجد منتجات مخفية.</div>';
+    } catch (e) {
+      Object.values(els).forEach(el => el.innerHTML = '<div class="empty-mini">تعذر التحميل.</div>');
+    }
+  }
+
+  async function loadInventoryInsights() {
+    const slowEl = document.getElementById('slowMovingList');
+    const highEl = document.getElementById('highDemandList');
+    try {
+      const d = await apiFetch('/store-management/dashboard/inventory-insights');
+      slowEl.innerHTML = rankList(d.slow_moving, 'units_sold_30d', 'name', 'warn');
+      highEl.innerHTML = rankList(d.high_demand, 'units_sold_30d', 'name');
+    } catch (e) {
+      slowEl.innerHTML = highEl.innerHTML = '<div class="empty-mini">تعذر التحميل.</div>';
+    }
+  }
+
+  async function loadCustomerAnalytics() {
+    const grid = document.getElementById('customersGrid');
+    const topEl = document.getElementById('topCustomersList');
+    try {
+      const d = await apiFetch('/store-management/dashboard/customers');
+      grid.innerHTML = [
+        kpiCard('إجمالي العملاء', d.total_customers),
+        kpiCard('عملاء جدد (30 يوم)', d.new_customers_30d),
+        kpiCard('عملاء عائدون', d.returning_customers),
+        kpiCard('متوسط الطلبات لكل عميل', d.average_orders_per_customer),
+      ].join('');
+      topEl.innerHTML = d.top_customers.length
+        ? d.top_customers.map(c => `<div class="rank-row"><span>${escapeHtml(c.name || 'عميل')}</span><strong>${money(c.total_spent)}</strong></div>`).join('')
+        : '<div class="empty-mini">لا توجد بيانات عملاء بعد.</div>';
+    } catch (e) {
+      grid.innerHTML = ''; topEl.innerHTML = '<div class="empty-mini">تعذر التحميل.</div>';
+    }
+  }
+
+  function starRating(n) { return '★'.repeat(n) + '☆'.repeat(5 - n); }
+
+  async function loadReviews() {
+    const grid = document.getElementById('reviewsSummaryGrid');
+    const listEl = document.getElementById('reviewsList');
+    try {
+      const d = await apiFetch('/store-management/dashboard/reviews');
+      grid.innerHTML = [
+        kpiCard('متوسط التقييم', d.average_rating > 0 ? `${d.average_rating} / 5` : '—'),
+        kpiCard('عدد التقييمات', d.review_count),
+      ].join('');
+      listEl.innerHTML = d.recent_reviews.length ? d.recent_reviews.map(r => `
+        <div class="review-card">
+          <div class="review-stars">${starRating(r.rating)}</div>
+          <div style="font-size:12px;color:#64748B;margin:2px 0 6px;">${escapeHtml(r.customer_name || 'عميل')}</div>
+          ${r.comment ? `<div style="font-size:13px;">${escapeHtml(r.comment)}</div>` : ''}
+          ${r.shop_reply
+            ? `<div class="review-reply"><strong>ردك:</strong> ${escapeHtml(r.shop_reply)}</div>`
+            : `<div class="review-reply-form">
+                 <input type="text" id="reply-${r.id}" placeholder="اكتب ردًا على هذا التقييم..." />
+                 <button class="small" onclick="submitReviewReply('${r.id}')">إرسال</button>
+               </div>`}
+        </div>`).join('') : '<div class="empty-mini">لا توجد تقييمات بعد.</div>';
+    } catch (e) {
+      grid.innerHTML = ''; listEl.innerHTML = '<div class="empty-mini">تعذر التحميل.</div>';
+    }
+  }
+
+  async function submitReviewReply(reviewId) {
+    const input = document.getElementById(`reply-${reviewId}`);
+    const reply = input.value.trim();
+    if (!reply) return;
+    try {
+      await apiFetch(`/store-management/dashboard/reviews/${reviewId}/reply`, {
+        method: 'POST',
+        body: JSON.stringify({ reply }),
+      });
+      await loadReviews();
+    } catch (e) { /* left as-is; the input stays so the merchant can retry */ }
+  }
+  window.submitReviewReply = submitReviewReply;
+
+  let currentFinancialsPeriod = 'monthly';
+  async function loadFinancials() {
+    const grid = document.getElementById('financialsGrid');
+    try {
+      const d = await apiFetch(`/store-management/dashboard/financials?period=${currentFinancialsPeriod}`);
+      grid.innerHTML = [
+        kpiCard('الإيرادات', money(d.revenue)),
+        kpiCard('عمولة المنصة', money(d.platform_commission)),
+        kpiCard('صافي الربح', money(d.net_profit)),
+        kpiCard('عدد الطلبات', d.order_count),
+      ].join('');
+    } catch (e) {
+      grid.innerHTML = '<div class="empty-mini">تعذر تحميل التقرير المالي.</div>';
+    }
+  }
+
+  document.querySelectorAll('#financialsPeriodTabs button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#financialsPeriodTabs button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFinancialsPeriod = btn.dataset.period;
+      loadFinancials();
+    });
+  });
+
+  // --- Payouts & Invoices ---------------------------------------------
+  const destTypeLabels = { bank_account: 'حساب بنكي', mobile_wallet: 'محفظة موبايل' };
+  const payoutStatusLabels = { pending: 'قيد الانتظار', processing: 'جارِ التنفيذ', paid: 'تم الدفع', failed: 'فشل' };
+
+  function renderPayoutAccountView(account) {
+    const el = document.getElementById('payoutAccountView');
+    if (!account) {
+      el.innerHTML = '<div class="empty-mini">لم تُضِف بيانات حساب استلام بعد.</div>';
+      return;
+    }
+    el.innerHTML = `
+      <div class="rank-row"><span>النوع</span><strong>${destTypeLabels[account.destination_type] || account.destination_type}</strong></div>
+      <div class="rank-row"><span>الاسم</span><strong>${escapeHtml(account.account_holder_name)}</strong></div>
+      <div class="rank-row"><span>الرقم</span><strong>${escapeHtml(account.account_number_masked)}</strong></div>
+      <div class="rank-row"><span>الحالة</span><span class="pill-tag ${account.is_verified ? '' : 'low'}">${account.is_verified ? 'موثّق' : 'بانتظار التوثيق'}</span></div>
+    `;
+  }
+
+  document.getElementById('editPayoutAccountBtn').addEventListener('click', () => {
+    document.getElementById('payoutAccountForm').classList.toggle('hidden');
+  });
+
+  document.getElementById('payoutDestType').addEventListener('change', (e) => {
+    const isBank = e.target.value === 'bank_account';
+    document.getElementById('bankNameLabel').style.display = isBank ? 'block' : 'none';
+    document.getElementById('payoutBankName').style.display = isBank ? 'block' : 'none';
+  });
+
+  document.getElementById('savePayoutAccountBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('savePayoutAccountBtn');
+    btn.disabled = true;
+    try {
+      const account = await apiFetch('/store-management/payout-account', {
+        method: 'PUT',
+        body: JSON.stringify({
+          destination_type: document.getElementById('payoutDestType').value,
+          account_holder_name: document.getElementById('payoutHolderName').value.trim(),
+          account_number: document.getElementById('payoutAccountNumber').value.trim(),
+          bank_name: document.getElementById('payoutBankName').value.trim() || null,
+        }),
+      });
+      renderPayoutAccountView(account);
+      document.getElementById('payoutAccountForm').classList.add('hidden');
+    } catch (e) {
+      // Form stays open with the entered values so the merchant can retry.
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  async function loadPayouts() {
+    const nextGrid = document.getElementById('nextPayoutGrid');
+    const historyEl = document.getElementById('payoutHistoryList');
+    try {
+      const d = await apiFetch('/store-management/dashboard/payouts');
+      renderPayoutAccountView(d.payout_account);
+
+      const p = d.next_payout_preview;
+      nextGrid.innerHTML = [
+        kpiCard('عدد الطلبات المستحقة', p.order_count),
+        kpiCard('صافي المبلغ المتوقع', money(p.net_payout_amount)),
+      ].join('');
+
+      historyEl.innerHTML = d.payouts.length ? d.payouts.map(p => `
+        <div class="rank-row">
+          <span>${new Date(p.created_at).toLocaleDateString('ar-EG')} — ${p.order_count} طلب</span>
+          <span class="pill-tag ${p.status === 'paid' ? '' : 'low'}">${payoutStatusLabels[p.status] || p.status}</span>
+          <strong>${money(p.net_payout_amount)}</strong>
+        </div>`).join('') : '<div class="empty-mini">لا توجد دفعات سابقة بعد.</div>';
+    } catch (e) {
+      nextGrid.innerHTML = ''; historyEl.innerHTML = '<div class="empty-mini">تعذر تحميل بيانات المدفوعات.</div>';
+    }
+  }
+
+  function loadDashboard() {
+    hideError(document.getElementById('dashboardError'));
+    loadDashboardSection(loadAdvisor);
+    loadDashboardSection(loadOverview);
+    loadDashboardSection(loadBranches);
+    loadDashboardSection(loadSalesAnalytics);
+    loadDashboardSection(loadProductInsights);
+    loadDashboardSection(loadInventoryInsights);
+    loadDashboardSection(loadCustomerAnalytics);
+    loadDashboardSection(loadReviews);
+    loadDashboardSection(loadFinancials);
+    loadDashboardSection(loadPayouts);
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>لوحة إدارة المتاجر</title>
+<style>
+  * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
+  body { margin: 0; background: #F8FAFC; color: #1E293B; }
+  .container { max-width: 900px; margin: 0 auto; padding: 24px; }
+  .card { background: white; border-radius: 16px; padding: 24px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); margin-bottom: 20px; }
+  h1 { font-size: 22px; margin: 0 0 20px; }
+  h2 { font-size: 16px; margin: 0 0 16px; color: #334155; }
+  label { display: block; font-size: 13px; color: #64748B; margin-bottom: 6px; }
+  input, textarea, select { width: 100%; padding: 12px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 15px; margin-bottom: 14px; font-family: inherit; }
+  textarea { min-height: 70px; resize: vertical; }
+  .row { display: flex; gap: 12px; }
+  .row > * { flex: 1; }
+  button { background: #2563EB; color: white; border: none; border-radius: 10px; padding: 12px 20px; font-size: 15px; cursor: pointer; }
+  button:hover { background: #1D4ED8; }
+  button.secondary { background: #E2E8F0; color: #334155; }
+  button.danger { background: #EF4444; }
+  button.small { padding: 6px 12px; font-size: 13px; }
+  button:disabled { background: #94A3B8; cursor: not-allowed; }
+  .error { color: #EF4444; font-size: 14px; margin-bottom: 12px; }
+  .hidden { display: none; }
+  #topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  #topbar button { padding: 8px 16px; font-size: 13px; }
+  .item-card { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: #F8FAFC; margin-bottom: 8px; }
+  .item-card img { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; background: #E2E8F0; }
+  .item-card .info { flex: 1; }
+  .item-card .name { font-weight: 600; font-size: 14px; }
+  .item-card .meta { font-size: 12px; color: #64748B; }
+  .back-link { color: #2563EB; cursor: pointer; font-size: 14px; margin-bottom: 12px; display: inline-block; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 6px; background: #EFF6FF; color: #2563EB; font-size: 11px; font-weight: 600; }
+
+  /* AIO Fast Picks — same card language as the rest of the panel, with a
+     warm fire/sale accent since these are specifically discounted items. */
+  .fire-card { border: 1px solid rgba(255,122,26,0.25); }
+  .fire-title { display: flex; align-items: center; gap: 8px; }
+  .fire-title .flame { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, #FF7A1A, #EF4444); font-size: 13px; }
+  button.fire { background: linear-gradient(135deg, #FF7A1A, #EF4444); }
+  button.fire:hover { background: linear-gradient(135deg, #EF4444, #C2410C); }
+  .fire-item { border: 1px solid rgba(255,122,26,0.25); }
+  .badge-fire { display: inline-block; padding: 2px 8px; border-radius: 20px; background: linear-gradient(135deg, #FF7A1A, #EF4444); color: white; font-size: 11px; font-weight: 700; margin-inline-start: 6px; }
+  .price-strike { color: #94A3B8; text-decoration: line-through; font-size: 12px; margin-inline-start: 6px; }
+
+  /* Per-category product attributes (weight/expiry, size/colour, food
+     add-on choices, electronics company, pharmacy dosage...). Rendered
+     dynamically based on the shop's own category — see
+     CATEGORY_ATTRIBUTE_SCHEMAS. */
+  .attrs-box { border: 1px dashed #CBD5E1; border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  .attrs-box .attrs-title { font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 10px; }
+  .attr-field { margin-bottom: 12px; }
+  .attr-field:last-child { margin-bottom: 0; }
+  .attr-field label { margin-bottom: 4px; }
+  .attr-options { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+  .attr-chip { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 20px; background: #EFF6FF; color: #2563EB; font-size: 12px; font-weight: 600; }
+  .attr-chip button { background: none; border: none; color: #2563EB; padding: 0; font-size: 14px; line-height: 1; cursor: pointer; }
+  .attr-add-row { display: flex; gap: 6px; }
+  .attr-add-row select, .attr-add-row input { margin-bottom: 0; }
+  .attr-add-row button { white-space: nowrap; padding: 10px 14px; }
+  .attr-hint { font-size: 11px; color: #94A3B8; margin: -6px 0 8px; }
+  .attr-checkbox-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .attr-checkbox-row input { width: auto; margin: 0; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Login view — same password as the admin panel. -->
+  <div id="loginView" class="card">
+    <h1>لوحة إدارة المتاجر</h1>
+    <div id="loginError" class="error hidden"></div>
+    <label>كلمة المرور</label>
+    <input type="password" id="passwordInput" placeholder="••••••••" />
+    <button id="loginBtn" style="width:100%">دخول</button>
+  </div>
+
+  <!-- Stores list + add-store view -->
+  <div id="storesView" class="hidden">
+    <div id="topbar">
+      <h1 style="margin:0">لوحة إدارة المتاجر</h1>
+      <button class="secondary" id="logoutBtn">تسجيل الخروج</button>
+    </div>
+
+    <div class="card">
+      <h2 id="shopFormTitle">إضافة متجر جديد</h2>
+      <div id="shopFormError" class="error hidden"></div>
+      <label>اسم المتجر</label>
+      <input type="text" id="shopNameInput" placeholder="اسم المتجر" />
+      <label>الفئة</label>
+      <select id="shopCategoryInput"></select>
+      <label>الفئة الفرعية (اختياري)</label>
+      <select id="shopSubcategoryInput"><option value="">— بدون فئة فرعية —</option></select>
+      <label>الوصف</label>
+      <textarea id="shopDescInput" placeholder="وصف مختصر عن المتجر"></textarea>
+      <label>رابط الشعار (اختياري)</label>
+      <input type="text" id="shopLogoInput" placeholder="https://..." />
+      <label id="shopPasswordLabel">كلمة مرور المتجر (لتسجيل الدخول للوحة إدارة الطلبات)</label>
+      <input type="password" id="shopPasswordInput" placeholder="4 أحرف على الأقل" />
+      <div class="row">
+        <div>
+          <label>خط العرض (Latitude)</label>
+          <input type="number" step="any" id="shopLatInput" placeholder="30.0444" />
+        </div>
+        <div>
+          <label>خط الطول (Longitude)</label>
+          <input type="number" step="any" id="shopLngInput" placeholder="31.2357" />
+        </div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button id="saveShopBtn">حفظ المتجر</button>
+        <button class="secondary hidden" id="cancelShopEditBtn">إلغاء</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>المتاجر</h2>
+      <div id="shopsError" class="error hidden"></div>
+      <div id="shopsList"></div>
+    </div>
+  </div>
+
+  <!-- Products view for a selected store -->
+  <div id="productsView" class="hidden">
+    <span class="back-link" id="backToShopsLink">→ الرجوع إلى المتاجر</span>
+    <h1 id="productsShopTitle"></h1>
+
+    <div class="card">
+      <h2 id="productFormTitle">إضافة منتج جديد</h2>
+      <div id="productFormError" class="error hidden"></div>
+      <label>اسم المنتج</label>
+      <input type="text" id="productNameInput" placeholder="اسم المنتج" />
+      <label>الفئة الفرعية (اختياري)</label>
+      <select id="productSubcategoryInput"><option value="">— بدون فئة فرعية —</option></select>
+      <label>الوصف</label>
+      <textarea id="productDescInput" placeholder="وصف المنتج"></textarea>
+      <label>رابط الصورة (اختياري)</label>
+      <input type="text" id="productImageInput" placeholder="https://..." />
+      <div class="row">
+        <div>
+          <label>السعر</label>
+          <input type="number" step="any" id="productPriceInput" placeholder="0.00" />
+        </div>
+        <div>
+          <label>الكمية المتوفرة</label>
+          <input type="number" id="productStockInput" placeholder="0" />
+        </div>
+      </div>
+      <div id="productAttrsContainer"></div>
+      <div style="display:flex; gap:8px;">
+        <button id="saveProductBtn">حفظ المنتج</button>
+        <button class="secondary hidden" id="cancelProductEditBtn">إلغاء</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>المنتجات</h2>
+      <div id="productsError" class="error hidden"></div>
+      <div id="productsList"></div>
+    </div>
+
+<!--
+  ADMIN PANEL — CONNECTORS SNIPPET
+  =================================
+  Where to paste this: inside your products view/modal, near wherever the
+  "add product" button already lives — this assumes you have a
+  `currentShopId` variable already set to whichever shop's products are
+  currently open (your existing openProducts(shopId, ...) function should
+  already set this — see your existing admin panel code).
+
+  Also call loadAdminConnectors() from inside that same openProducts()
+  function (after currentShopId is set) so this section populates
+  automatically when a shop's products view opens.
+
+  This is self-contained (its own apiFetch using X-Admin-Secret from
+  localStorage, matching your existing admin panel's auth pattern) so it
+  doesn't depend on function names in your current index.html that I don't
+  have visibility into. If your existing apiFetch helper has a different
+  name/storage key, either rename the calls below to match it, or just
+  leave this self-contained version as-is — both work identically against
+  the API.
+-->
+
+<div id="connectorsSection">
+  <h3 style="margin-top:20px;">طرق إضافة المنتجات لهذا المتجر</h3>
+  <div id="adminConnectorsError" class="error hidden" style="color:#EF4444; font-size:14px; margin-bottom:10px;"></div>
+  <div id="adminConnectorsList"></div>
+  <button class="small" style="margin-top:10px;" onclick="toggleAdminAddConnectorForm()">+ ربط نظام جديد</button>
+
+  <div id="adminAddConnectorForm" class="hidden" style="margin-top:14px; padding:14px; background:#F8FAFC; border-radius:12px;">
+    <label>نوع الربط</label>
+    <select id="adminConnectorTypeSelect" onchange="renderAdminConnectorConfigFields()" style="width:100%; margin-bottom:10px; padding:8px;"></select>
+    <div id="adminConnectorConfigFields"></div>
+    <label>تكرار المزامنة التلقائية (بالدقائق، اختياري)</label>
+    <input type="number" id="adminConnectorSyncFrequency" placeholder="مثال: 60" min="5" style="width:100%; margin-bottom:10px; padding:8px;" />
+    <div style="display:flex; gap:8px;">
+      <button onclick="createAdminConnector()">حفظ</button>
+      <button class="secondary" onclick="toggleAdminAddConnectorForm()">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Uses the same X-Admin-Secret pattern your existing admin panel already
+  // uses for every other /admin/* call — adjust the header/localStorage key
+  // name here if your existing apiFetch uses a different one.
+  async function adminApiFetch(path, options = {}) {
+    const adminSecret = localStorage.getItem('adminSecret') || '';
+    const response = await fetch(path, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Secret': adminSecret,
+        ...(options.headers || {}),
+      },
+    });
+    if (!response.ok) {
+      let detail = `HTTP ${response.status}`;
+      try { const body = await response.json(); detail = body.detail || detail; } catch (_) {}
+      throw new Error(detail);
+    }
+    if (response.status === 204) return null;
+    return response.json();
+  }
+
+  function showAdminConnectorsError(msg) {
+    const el = document.getElementById('adminConnectorsError');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+  function hideAdminConnectorsError() {
+    document.getElementById('adminConnectorsError').classList.add('hidden');
+  }
+  function escapeHtmlAdmin(str) {
+    const div = document.createElement('div');
+    div.textContent = str ?? '';
+    return div.innerHTML;
+  }
+
+  const ADMIN_CONNECTOR_STATUS_LABELS = {
+    never_synced: 'لم تتم المزامنة بعد', syncing: 'جارٍ المزامنة الآن...',
+    success: 'تمت المزامنة بنجاح', error: 'فشلت آخر مزامنة',
+  };
+
+  let _adminConnectorTypesCache = null;
+  async function getAdminConnectorTypes() {
+    if (_adminConnectorTypesCache) return _adminConnectorTypesCache;
+    _adminConnectorTypesCache = await adminApiFetch('/admin/connector-types');
+    return _adminConnectorTypesCache;
+  }
+
+  // Call this whenever you open a shop's products (e.g. from inside your
+  // existing openProducts(shopId, ...) function) — assumes `currentShopId`
+  // is already set by that point.
+  async function loadAdminConnectors() {
+    hideAdminConnectorsError();
+    const container = document.getElementById('adminConnectorsList');
+    container.innerHTML = 'جاري التحميل...';
+    try {
+      const [connectors] = await Promise.all([
+        adminApiFetch(`/admin/shops/${currentShopId}/connectors`),
+        getAdminConnectorTypes(),
+      ]);
+      container.innerHTML = connectors.length === 0
+        ? '<div style="color:#94A3B8; text-align:center; padding:20px 0;">لا توجد طرق ربط بعد — استخدم الإضافة اليدوية بالأعلى، أو اربط نظامًا جديدًا.</div>'
+        : connectors.map(c => renderAdminConnectorCard(c)).join('');
+      populateAdminConnectorTypeSelect();
+    } catch (e) {
+      showAdminConnectorsError(e.message);
+      container.innerHTML = '';
+    }
+  }
+  window.loadAdminConnectors = loadAdminConnectors;
+
+  function renderAdminConnectorCard(c) {
+    const typeInfo = (_adminConnectorTypesCache || []).find(t => t.connector_type === c.connector_type);
+    const label = typeInfo ? typeInfo.label_ar : c.connector_type;
+    return `
+      <div style="padding:12px; border-radius:10px; background:#F8FAFC; margin-bottom:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <strong>${escapeHtmlAdmin(label)}</strong>
+          <span style="font-size:12px; padding:2px 8px; border-radius:6px; background:${c.last_sync_status === 'error' ? '#FEE2E2' : (c.last_sync_status === 'success' ? '#DCFCE7' : '#FEF3C7')};">
+            ${ADMIN_CONNECTOR_STATUS_LABELS[c.last_sync_status] || c.last_sync_status}
+          </span>
+        </div>
+        ${c.last_synced_at ? `<div style="font-size:12px; color:#94A3B8;">آخر مزامنة: ${new Date(c.last_synced_at).toLocaleString('ar-EG')} — ${c.last_sync_products_count ?? 0} منتج</div>` : ''}
+        ${c.last_sync_error ? `<div style="font-size:12px; color:#EF4444;">${escapeHtmlAdmin(c.last_sync_error)}</div>` : ''}
+        <div style="display:flex; gap:6px; margin-top:8px;">
+          <button class="small" onclick="syncAdminConnectorNow('${c.id}')">مزامنة الآن</button>
+          <button class="small secondary" onclick="testAdminConnectorNow('${c.id}')">اختبار</button>
+          <button class="small secondary" onclick="deleteAdminConnectorNow('${c.id}')">حذف</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function populateAdminConnectorTypeSelect() {
+    const select = document.getElementById('adminConnectorTypeSelect');
+    select.innerHTML = (_adminConnectorTypesCache || []).map(t =>
+      `<option value="${t.connector_type}" ${!t.is_implemented ? 'disabled' : ''}>${escapeHtmlAdmin(t.label_ar)}${!t.is_implemented ? ' (قريبًا)' : ''}</option>`
+    ).join('');
+    renderAdminConnectorConfigFields();
+  }
+
+  const ADMIN_CONFIG_FIELD_LABELS = {
+    file_url: 'رابط الملف (CSV/Excel)', sheet_url: 'رابط Google Sheets',
+    connection_string: 'رابط الاتصال بقاعدة البيانات', query: 'استعلام SQL (SELECT فقط)',
+    base_url: 'الرابط الأساسي للـ API', products_path: 'مسار المنتجات',
+    auth_type: 'نوع المصادقة (none / bearer / api_key_header)', auth_token: 'رمز Bearer',
+    api_key_header_name: 'اسم الهيدر', api_key_value: 'قيمة مفتاح الـ API',
+    response_items_path: 'مسار المصفوفة في الاستجابة',
+    field_map: 'ربط الحقول (JSON)',
+    url: 'رابط النظام', db: 'اسم قاعدة البيانات', username: 'اسم المستخدم', api_key: 'مفتاح API',
+    region: 'المنطقة', client_id: 'Client ID', client_secret: 'Client Secret',
+    refresh_token: 'Refresh Token', organization_id: 'Organization ID', api_token: 'رمز API',
+  };
+
+  function renderAdminConnectorConfigFields() {
+    const type = document.getElementById('adminConnectorTypeSelect').value;
+    const typeInfo = (_adminConnectorTypesCache || []).find(t => t.connector_type === type);
+    const container = document.getElementById('adminConnectorConfigFields');
+    container.innerHTML = (!typeInfo || typeInfo.config_fields.length === 0) ? '' : typeInfo.config_fields.map(field => `
+      <label>${escapeHtmlAdmin(ADMIN_CONFIG_FIELD_LABELS[field] || field)}</label>
+      <input type="text" id="admin-cfg-${field}" style="width:100%; margin-bottom:8px; padding:8px;" />
+    `).join('');
+  }
+  window.renderAdminConnectorConfigFields = renderAdminConnectorConfigFields;
+
+  function toggleAdminAddConnectorForm() {
+    document.getElementById('adminAddConnectorForm').classList.toggle('hidden');
+  }
+  window.toggleAdminAddConnectorForm = toggleAdminAddConnectorForm;
+
+  async function createAdminConnector() {
+    hideAdminConnectorsError();
+    const type = document.getElementById('adminConnectorTypeSelect').value;
+    const typeInfo = (_adminConnectorTypesCache || []).find(t => t.connector_type === type);
+    const freqRaw = document.getElementById('adminConnectorSyncFrequency').value;
+
+    const config = {};
+    for (const field of (typeInfo ? typeInfo.config_fields : [])) {
+      const raw = document.getElementById(`admin-cfg-${field}`).value.trim();
+      if (!raw) continue;
+      config[field] = field === 'field_map' ? (() => { try { return JSON.parse(raw); } catch (_) { return raw; } })() : raw;
+    }
+
+    try {
+      await adminApiFetch(`/admin/shops/${currentShopId}/connectors`, {
+        method: 'POST',
+        body: JSON.stringify({ connector_type: type, config, sync_frequency_minutes: freqRaw ? parseInt(freqRaw, 10) : null }),
+      });
+      toggleAdminAddConnectorForm();
+      await loadAdminConnectors();
+    } catch (e) {
+      showAdminConnectorsError(e.message);
+    }
+  }
+  window.createAdminConnector = createAdminConnector;
+
+  async function syncAdminConnectorNow(connectorId) {
+    hideAdminConnectorsError();
+    try {
+      await adminApiFetch(`/admin/shops/${currentShopId}/connectors/${connectorId}/sync`, { method: 'POST' });
+      await loadAdminConnectors();
+    } catch (e) {
+      showAdminConnectorsError(e.message);
+      await loadAdminConnectors();
+    }
+  }
+  window.syncAdminConnectorNow = syncAdminConnectorNow;
+
+  async function testAdminConnectorNow(connectorId) {
+    hideAdminConnectorsError();
+    try {
+      await adminApiFetch(`/admin/shops/${currentShopId}/connectors/${connectorId}/test`, { method: 'POST' });
+      alert('نجح الاتصال ✅');
+    } catch (e) {
+      showAdminConnectorsError(`فشل اختبار الاتصال: ${e.message}`);
+    }
+  }
+  window.testAdminConnectorNow = testAdminConnectorNow;
+
+  async function deleteAdminConnectorNow(connectorId) {
+    if (!confirm('هل تريد حذف طريقة الربط هذه؟ المنتجات التي أضافتها ستبقى كما هي.')) return;
+    hideAdminConnectorsError();
+    try {
+      await adminApiFetch(`/admin/shops/${currentShopId}/connectors/${connectorId}`, { method: 'DELETE' });
+      await loadAdminConnectors();
+    } catch (e) {
+      showAdminConnectorsError(e.message);
+    }
+  }
+  window.deleteAdminConnectorNow = deleteAdminConnectorNow;
+</script>
+
+
+
+
+    <!-- AIO Fast Picks — a separate add/edit flow from the normal product
+         form above. Same fields plus a second "sale price" — a product
+         only shows up on the app's Fast Picks rails once this is set to
+         something lower than the normal price (see ProductResponse.is_on_sale
+         on the backend). -->
+    <div class="card fire-card">
+      <h2 class="fire-title"><span class="flame">🔥</span> إضافة منتج ضمن AIO Fast Picks</h2>
+      <div id="fastPickFormError" class="error hidden"></div>
+      <label>اسم المنتج</label>
+      <input type="text" id="fastPickNameInput" placeholder="اسم المنتج" />
+      <label>الفئة الفرعية (اختياري)</label>
+      <select id="fastPickSubcategoryInput"><option value="">— بدون فئة فرعية —</option></select>
+      <label>الوصف</label>
+      <textarea id="fastPickDescInput" placeholder="وصف المنتج"></textarea>
+      <label>رابط الصورة (اختياري)</label>
+      <input type="text" id="fastPickImageInput" placeholder="https://..." />
+      <div class="row">
+        <div>
+          <label>السعر قبل الخصم</label>
+          <input type="number" step="any" id="fastPickPriceInput" placeholder="0.00" />
+        </div>
+        <div>
+          <label>السعر بعد الخصم 🔥</label>
+          <input type="number" step="any" id="fastPickSalePriceInput" placeholder="0.00" />
+        </div>
+      </div>
+      <label>الكمية المتوفرة</label>
+      <input type="number" id="fastPickStockInput" placeholder="0" />
+      <div id="fastPickAttrsContainer"></div>
+      <div style="display:flex; gap:8px;">
+        <button id="saveFastPickBtn" class="fire">حفظ ضمن Fast Picks</button>
+        <button class="secondary hidden" id="cancelFastPickEditBtn">إلغاء</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="fire-title"><span class="flame">🔥</span> منتجات AIO Fast Picks</h2>
+      <div id="fastPicksError" class="error hidden"></div>
+      <div id="fastPicksList"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const API_BASE_URL = ""; // Same-origin, if served via the FastAPI StaticFiles mount (see main.py).
+
+  let adminPassword = null;
+  let categories = [];
+  let currentShopId = null;
+  let currentShopCategoryId = null;
+  let editingShopId = null;
+  let editingProductId = null;
+
+  // --- Per-category product attributes --------------------------------
+  // Mirrors app/constants/product_attributes.py — keep both in sync.
+  // type: "text" | "date" | "boolean" | "single_select" (store picks ONE
+  // value) | "choices"/"multi_choices" (store picks which options are
+  // AVAILABLE; the customer then chooses between them in the app).
+  const CATEGORY_ATTRIBUTE_SCHEMAS = {
+    grocery: [
+      { key: 'weight', label_ar: 'الوزن / الحجم', type: 'text', optional: true, placeholder: 'مثال: 500 جم، 1 كجم، 1 لتر' },
+      { key: 'expire_date', label_ar: 'تاريخ الصلاحية', type: 'date', optional: true },
+    ],
+    clothes: [
+      { key: 'size', label_ar: 'المقاس (يختار العميل منها)', type: 'choices', optional: false,
+        suggested_options: ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'] },
+      { key: 'colour', label_ar: 'اللون (يختار العميل منه)', type: 'choices', optional: true,
+        suggested_options: ['أسود', 'أبيض', 'أحمر', 'أزرق', 'بيج', 'رمادي', 'كحلي', 'بني'] },
+      { key: 'sleeve_type', label_ar: 'نوع الكم (يختار العميل منه)', type: 'choices', optional: true,
+        suggested_options: ['كم طويل', 'كم قصير', 'بدون كم'] },
+    ],
+    food: [
+      { key: 'size', label_ar: 'الحجم (يختار العميل منه)', type: 'choices', optional: true,
+        suggested_options: ['صغير', 'وسط', 'كبير', 'عائلي'] },
+      { key: 'extras', label_ar: 'إضافات (يختار العميل أكتر من واحدة)', type: 'multi_choices', optional: true,
+        suggested_options: ['جبنة إضافية', 'صوص إضافي', 'مقرمش إضافي', 'بدون بصل', 'بدون طماطم', 'بدون مخلل'] },
+      { key: 'spice_level', label_ar: 'درجة الحرارة (يختار العميل منها)', type: 'choices', optional: true,
+        suggested_options: ['عادي', 'حار', 'حار جدًا'] },
+      { key: 'drink_choice', label_ar: 'اختيار المشروب (لو ضمن الوجبة)', type: 'choices', optional: true,
+        suggested_options: ['بيبسي', 'سفن أب', 'ميرندا', 'مياه', 'بدون مشروب'] },
+    ],
+    electronics: [
+      { key: 'company', label_ar: 'الشركة المصنعة', type: 'single_select', optional: false,
+        suggested_options: ['Apple', 'Samsung', 'Xiaomi', 'Oppo', 'Realme', 'Huawei', 'Anker/Soundcore', 'JBL', 'Lenovo', 'HP', 'Dell', 'Sony', 'أخرى'],
+        can_become_subcategory: true },
+      { key: 'colour', label_ar: 'اللون (يختار العميل منه)', type: 'choices', optional: true,
+        suggested_options: ['أسود', 'أبيض', 'فضي', 'ذهبي', 'أزرق', 'أحمر', 'أخضر'] },
+      { key: 'warranty', label_ar: 'الضمان', type: 'text', optional: true, placeholder: 'مثال: سنة ضمان من الوكيل' },
+      // Compare Before Buying spec fields — plain read-only text, leave
+      // blank for any device type they don't apply to.
+      { key: 'processor', label_ar: 'المعالج', type: 'text', optional: true, placeholder: 'مثال: Snapdragon 8 Gen 3' },
+      { key: 'display', label_ar: 'الشاشة', type: 'text', optional: true, placeholder: 'مثال: 6.7 بوصة AMOLED 120Hz' },
+      { key: 'battery', label_ar: 'البطارية', type: 'text', optional: true, placeholder: 'مثال: 5000 مللي أمبير' },
+      { key: 'ram', label_ar: 'الرام', type: 'text', optional: true, placeholder: 'مثال: 8 جيجا' },
+      { key: 'storage', label_ar: 'التخزين', type: 'text', optional: true, placeholder: 'مثال: 256 جيجا' },
+      { key: 'camera', label_ar: 'الكاميرا', type: 'text', optional: true, placeholder: 'مثال: 50 ميجابكسل + 12 ميجابكسل' },
+    ],
+    pharmacies: [
+      { key: 'form', label_ar: 'شكل الدواء', type: 'single_select', optional: true,
+        suggested_options: ['أقراص', 'شراب', 'كريم', 'حقن', 'قطرة', 'مرهم', 'بخاخ', 'أخرى'] },
+      { key: 'dosage', label_ar: 'التركيز / الجرعة', type: 'text', optional: true, placeholder: 'مثال: 500 mg' },
+      { key: 'expire_date', label_ar: 'تاريخ الصلاحية', type: 'date', optional: true },
+      { key: 'requires_prescription', label_ar: 'يتطلب روشتة طبية', type: 'boolean', optional: true },
+    ],
+  };
+
+  const loginView = document.getElementById('loginView');
+  const storesView = document.getElementById('storesView');
+  const productsView = document.getElementById('productsView');
+  const loginError = document.getElementById('loginError');
+  const shopFormError = document.getElementById('shopFormError');
+  const shopsError = document.getElementById('shopsError');
+  const productFormError = document.getElementById('productFormError');
+  const productsError = document.getElementById('productsError');
+
+  // Holds the in-progress "choices"/"multi_choices" option lists per form
+  // container while the user is adding/removing chips, keyed by
+  // `${containerId}:${fieldKey}` -> string[].
+  const attrChoiceState = {};
+
+  function attrStateKey(containerId, fieldKey) { return `${containerId}:${fieldKey}`; }
+
+  function renderAttrFields(containerId, categoryId, existingValues) {
+    const container = document.getElementById(containerId);
+    const fields = CATEGORY_ATTRIBUTE_SCHEMAS[categoryId] || [];
+    existingValues = existingValues || {};
+    if (fields.length === 0) { container.innerHTML = ''; return; }
+
+    container.innerHTML = `<div class="attrs-box">
+      <div class="attrs-title">تفاصيل خاصة بفئة المتجر</div>
+      <div id="${containerId}_fields"></div>
+    </div>`;
+    const fieldsBox = document.getElementById(`${containerId}_fields`);
+
+    fields.forEach(field => {
+      const wrap = document.createElement('div');
+      wrap.className = 'attr-field';
+      const fieldId = `${containerId}_${field.key}`;
+
+      if (field.type === 'text') {
+        wrap.innerHTML = `<label>${escapeHtml(field.label_ar)}${field.optional ? '' : ' *'}</label>
+          <input type="text" id="${fieldId}" placeholder="${escapeHtml(field.placeholder || '')}" value="${escapeHtml(existingValues[field.key] || '')}" />`;
+      } else if (field.type === 'date') {
+        wrap.innerHTML = `<label>${escapeHtml(field.label_ar)}${field.optional ? '' : ' *'}</label>
+          <input type="date" id="${fieldId}" value="${escapeHtml(existingValues[field.key] || '')}" />`;
+      } else if (field.type === 'boolean') {
+        wrap.innerHTML = `<div class="attr-checkbox-row">
+            <input type="checkbox" id="${fieldId}" ${existingValues[field.key] ? 'checked' : ''} />
+            <label style="margin:0">${escapeHtml(field.label_ar)}</label>
+          </div>`;
+      } else if (field.type === 'single_select') {
+        const opts = field.suggested_options || [];
+        wrap.innerHTML = `<label>${escapeHtml(field.label_ar)}${field.optional ? '' : ' *'}</label>
+          <select id="${fieldId}">
+            <option value="">— اختر —</option>
+            ${opts.map(o => `<option value="${escapeHtml(o)}" ${existingValues[field.key] === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+          </select>
+          ${field.can_become_subcategory ? `<div class="attr-hint">تقدر تحول أي شركة هنا لفئة فرعية تظهر للعملاء كفلتر منفصل — من قسم "الفئة الفرعية" في متجرك (اعمل فئة فرعية بنفس اسم الشركة).</div>` : ''}`;
+      } else if (field.type === 'choices' || field.type === 'multi_choices') {
+        const stateKey = attrStateKey(containerId, field.key);
+        if (!attrChoiceState[stateKey]) {
+          attrChoiceState[stateKey] = Array.isArray(existingValues[field.key]) ? [...existingValues[field.key]] : [];
+        }
+        const suggested = field.suggested_options || [];
+        wrap.innerHTML = `<label>${escapeHtml(field.label_ar)}${field.optional ? '' : ' *'}</label>
+          <div class="attr-options" id="${fieldId}_chips"></div>
+          <div class="attr-add-row">
+            <select id="${fieldId}_select" style="flex:1">
+              <option value="">— اختر خيار جاهز —</option>
+              ${suggested.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('')}
+            </select>
+            <input type="text" id="${fieldId}_custom" placeholder="أو اكتب خيار جديد" style="flex:1" />
+            <button type="button" class="secondary small" onclick="addAttrChoice('${containerId}', '${field.key}')">إضافة</button>
+          </div>
+          <div class="attr-hint">${field.type === 'multi_choices' ? 'العميل هيقدر يختار أكتر من خيار من دول.' : 'العميل هيختار واحد من الخيارات دي قبل ما يضيف المنتج للسلة.'}</div>`;
+        wrap.querySelector('.attr-add-row').dataset.containerId = containerId;
+      }
+
+      fieldsBox.appendChild(wrap);
+      if (field.type === 'choices' || field.type === 'multi_choices') {
+        renderAttrChips(containerId, field.key);
+      }
+    });
+  }
+
+  function renderAttrChips(containerId, fieldKey) {
+    const chipsEl = document.getElementById(`${containerId}_${fieldKey}_chips`);
+    if (!chipsEl) return;
+    const values = attrChoiceState[attrStateKey(containerId, fieldKey)] || [];
+    chipsEl.innerHTML = values.map((v, i) => `
+      <span class="attr-chip">${escapeHtml(v)} <button type="button" onclick="removeAttrChoice('${containerId}', '${fieldKey}', ${i})">✕</button></span>
+    `).join('') || '<span class="attr-hint" style="margin:0">لا يوجد خيارات مضافة بعد</span>';
+  }
+
+  function addAttrChoice(containerId, fieldKey) {
+    const fieldId = `${containerId}_${fieldKey}`;
+    const select = document.getElementById(`${fieldId}_select`);
+    const custom = document.getElementById(`${fieldId}_custom`);
+    const value = (custom.value.trim() || select.value || '').trim();
+    if (!value) return;
+    const key = attrStateKey(containerId, fieldKey);
+    if (!attrChoiceState[key]) attrChoiceState[key] = [];
+    if (!attrChoiceState[key].includes(value)) attrChoiceState[key].push(value);
+    select.value = '';
+    custom.value = '';
+    renderAttrChips(containerId, fieldKey);
+  }
+  window.addAttrChoice = addAttrChoice;
+
+  function removeAttrChoice(containerId, fieldKey, index) {
+    const key = attrStateKey(containerId, fieldKey);
+    if (!attrChoiceState[key]) return;
+    attrChoiceState[key].splice(index, 1);
+    renderAttrChips(containerId, fieldKey);
+  }
+  window.removeAttrChoice = removeAttrChoice;
+
+  function resetAttrChoiceState(containerId, categoryId) {
+    const fields = CATEGORY_ATTRIBUTE_SCHEMAS[categoryId] || [];
+    fields.forEach(f => { delete attrChoiceState[attrStateKey(containerId, f.key)]; });
+  }
+
+  // Reads whatever's currently in the rendered attribute fields back into
+  // a plain { key: value } object matching Product.attributes. Empty
+  // text/date fields and empty choice lists are omitted entirely rather
+  // than stored as "", "", [] noise.
+  function collectAttrValues(containerId, categoryId) {
+    const fields = CATEGORY_ATTRIBUTE_SCHEMAS[categoryId] || [];
+    const result = {};
+    fields.forEach(field => {
+      const fieldId = `${containerId}_${field.key}`;
+      if (field.type === 'text' || field.type === 'date' || field.type === 'single_select') {
+        const el = document.getElementById(fieldId);
+        const val = el ? el.value.trim() : '';
+        if (val) result[field.key] = val;
+      } else if (field.type === 'boolean') {
+        const el = document.getElementById(fieldId);
+        if (el && el.checked) result[field.key] = true;
+      } else if (field.type === 'choices' || field.type === 'multi_choices') {
+        const values = attrChoiceState[attrStateKey(containerId, field.key)] || [];
+        if (values.length > 0) result[field.key] = values;
+      }
+    });
+    return result;
+  }
+
+  function showError(el, message) { el.textContent = message; el.classList.remove('hidden'); }
+  function hideError(el) { el.classList.add('hidden'); }
+  function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str ?? ''; return div.innerHTML; }
+
+  async function apiFetch(path, options = {}) {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': adminPassword, ...(options.headers || {}) },
+    });
+    if (!response.ok) {
+      let detail = `HTTP ${response.status}`;
+      try { const body = await response.json(); detail = body.detail || detail; } catch (_) {}
+      throw new Error(detail);
+    }
+    if (response.status === 204) return null;
+    return response.json();
+  }
+
+  // --- Login -----------------------------------------------------------
+
+  document.getElementById('loginBtn').addEventListener('click', async () => {
+    hideError(loginError);
+    const password = document.getElementById('passwordInput').value;
+    if (!password) return;
+    adminPassword = password;
+    try {
+      categories = await apiFetch('/admin/categories');
+      populateCategoryDropdown();
+      loginView.classList.add('hidden');
+      storesView.classList.remove('hidden');
+      await loadShops();
+    } catch (e) {
+      adminPassword = null;
+      showError(loginError, 'كلمة المرور غير صحيحة.');
+    }
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    adminPassword = null;
+    document.getElementById('passwordInput').value = '';
+    storesView.classList.add('hidden');
+    productsView.classList.add('hidden');
+    loginView.classList.remove('hidden');
+  });
+
+  function populateCategoryDropdown() {
+    const select = document.getElementById('shopCategoryInput');
+    select.innerHTML = categories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+    select.addEventListener('change', () => loadSubcategoriesForDropdown(select.value));
+    // Fires once on login so the subcategory dropdown matches whatever
+    // category happens to be selected first (the browser's default: the
+    // first <option> in the list above).
+    loadSubcategoriesForDropdown(select.value);
+  }
+
+  async function loadSubcategoriesForDropdown(categoryId, selectedSubcategoryId, targetSelectId = 'shopSubcategoryInput') {
+    const select = document.getElementById(targetSelectId);
+    select.innerHTML = '<option value="">— بدون فئة فرعية —</option>';
+    if (!categoryId) return;
+    try {
+      const subcategories = await apiFetch(`/admin/categories/${categoryId}/subcategories`);
+      select.innerHTML += subcategories.map(sc => `<option value="${sc.id}">${escapeHtml(sc.name)}</option>`).join('');
+      if (selectedSubcategoryId) select.value = selectedSubcategoryId;
+    } catch (e) {
+      // Non-fatal — the shop/product can still be saved with no subcategory picked.
+      console.error('Could not load subcategories:', e.message);
+    }
+  }
+
+  // --- Shops -------------------------------------------------------------
+
+  function resetShopForm() {
+    editingShopId = null;
+    document.getElementById('shopFormTitle').textContent = 'إضافة متجر جديد';
+    document.getElementById('shopNameInput').value = '';
+    document.getElementById('shopDescInput').value = '';
+    document.getElementById('shopLogoInput').value = '';
+    document.getElementById('shopLatInput').value = '';
+    document.getElementById('shopLngInput').value = '';
+    document.getElementById('shopSubcategoryInput').value = '';
+    document.getElementById('shopPasswordInput').value = '';
+    document.getElementById('shopPasswordLabel').textContent = 'كلمة مرور المتجر (لتسجيل الدخول للوحة إدارة الطلبات)';
+    document.getElementById('shopPasswordInput').placeholder = '4 أحرف على الأقل';
+    document.getElementById('cancelShopEditBtn').classList.add('hidden');
+  }
+
+  document.getElementById('cancelShopEditBtn').addEventListener('click', resetShopForm);
+
+  document.getElementById('saveShopBtn').addEventListener('click', async () => {
+    hideError(shopFormError);
+    const name = document.getElementById('shopNameInput').value.trim();
+    const category_id = document.getElementById('shopCategoryInput').value;
+    const subcategory_id = document.getElementById('shopSubcategoryInput').value || null;
+    const description = document.getElementById('shopDescInput').value.trim() || null;
+    const logo_url = document.getElementById('shopLogoInput').value.trim() || null;
+    const password = document.getElementById('shopPasswordInput').value;
+    const latRaw = document.getElementById('shopLatInput').value;
+    const lngRaw = document.getElementById('shopLngInput').value;
+    const lat = latRaw !== '' ? parseFloat(latRaw) : null;
+    const lng = lngRaw !== '' ? parseFloat(lngRaw) : null;
+
+    if (!name || name.length < 1) { showError(shopFormError, 'يرجى إدخال اسم المتجر.'); return; }
+    // Required on create (every shop needs a password for the store
+    // management panel — see AdminShopCreateRequest.password). Optional on
+    // edit: left blank means "keep the current password unchanged".
+    if (!editingShopId && (!password || password.length < 4)) {
+      showError(shopFormError, 'يرجى إدخال كلمة مرور للمتجر (4 أحرف على الأقل).');
+      return;
+    }
+    if (password && password.length > 0 && password.length < 4) {
+      showError(shopFormError, 'كلمة المرور يجب أن تكون 4 أحرف على الأقل.');
+      return;
+    }
+
+    const btn = document.getElementById('saveShopBtn');
+    btn.disabled = true;
+    try {
+      if (editingShopId) {
+        const body = { name, description, logo_url, lat, lng, subcategory_id: subcategory_id || '' };
+        // Only send password if the admin actually typed a new one —
+        // omitting it entirely (not sending an empty string) is what
+        // AdminShopUpdateRequest treats as "leave the current one alone".
+        if (password) body.password = password;
+        await apiFetch(`/admin/shops/${editingShopId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(body),
+        });
+      } else {
+        await apiFetch('/admin/shops', {
+          method: 'POST',
+          body: JSON.stringify({ name, category_id, subcategory_id, description, logo_url, lat, lng, password }),
+        });
+      }
+      resetShopForm();
+      await loadShops();
+    } catch (e) {
+      showError(shopFormError, e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  async function loadShops() {
+    hideError(shopsError);
+    const container = document.getElementById('shopsList');
+    container.innerHTML = 'جاري التحميل...';
+    try {
+      const shops = await apiFetch('/admin/shops');
+      if (shops.length === 0) { container.innerHTML = 'لا توجد متاجر بعد'; return; }
+      container.innerHTML = shops.map(s => `
+        <div class="item-card">
+          <img src="${s.logo_url || ''}" onerror="this.style.visibility='hidden'" />
+          <div class="info">
+            <div class="name">${escapeHtml(s.name)} <span class="tag">${escapeHtml(s.category_name || '')}</span>${s.subcategory_name ? ` <span class="tag">${escapeHtml(s.subcategory_name)}</span>` : ''}</div>
+            <div class="meta">${s.product_count} منتج${s.lat ? ' • موقع محدد' : ' • بدون موقع'} • ID: ${s.id}</div>
+          </div>
+          <button class="small secondary" onclick="editShop('${s.id}')">تعديل</button>
+          <button class="small" onclick="openProducts('${s.id}', '${escapeHtml(s.name)}')">المنتجات</button>
+          <button class="small danger" onclick="deleteShop('${s.id}', '${escapeHtml(s.name)}')">حذف</button>
+        </div>
+      `).join('');
+      window._shopsCache = shops;
+    } catch (e) {
+      showError(shopsError, e.message);
+      container.innerHTML = '';
+    }
+  }
+
+  async function deleteShop(shopId, shopName) {
+    if (!confirm(`هل أنت متأكد من حذف متجر "${shopName}"؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
+    hideError(shopsError);
+    try {
+      await apiFetch(`/admin/shops/${shopId}`, { method: 'DELETE' });
+      await loadShops();
+    } catch (e) {
+      // Covers both cases the backend guards against: the store still has
+      // products (delete those first) or it has order history (can't be
+      // deleted at all, only deactivated).
+      showError(shopsError, e.message);
+    }
+  }
+  window.deleteShop = deleteShop;
+
+  function editShop(shopId) {
+    const shop = window._shopsCache.find(s => s.id === shopId);
+    if (!shop) return;
+    editingShopId = shopId;
+    document.getElementById('shopFormTitle').textContent = `تعديل: ${shop.name}`;
+    document.getElementById('shopNameInput').value = shop.name;
+    document.getElementById('shopDescInput').value = shop.description || '';
+    document.getElementById('shopLogoInput').value = shop.logo_url || '';
+    document.getElementById('shopLatInput').value = shop.lat ?? '';
+    document.getElementById('shopLngInput').value = shop.lng ?? '';
+    // Was previously left on whatever category happened to be selected —
+    // now synced to the shop's actual category, which the subcategory
+    // dropdown depends on being correct.
+    document.getElementById('shopCategoryInput').value = shop.category_id;
+    loadSubcategoriesForDropdown(shop.category_id, shop.subcategory_id);
+    // Password is never returned by the API (AdminShopResponse has no such
+    // field) — left blank here always means "keep the current one", never
+    // "this shop has no password". The shop_id is shown so whoever's
+    // editing can hand it to the store owner for the management panel login.
+    document.getElementById('shopPasswordInput').value = '';
+    document.getElementById('shopPasswordLabel').textContent =
+      `كلمة مرور جديدة (اختياري — اتركه فارغًا للإبقاء على كلمة المرور الحالية) — معرّف المتجر: ${shop.id}`;
+    document.getElementById('shopPasswordInput').placeholder = 'اتركه فارغًا لعدم التغيير';
+    document.getElementById('cancelShopEditBtn').classList.remove('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  window.editShop = editShop;
+
+  // --- Products ------------------------------------------------------------
+
+  function openProducts(shopId, shopName) {
+    currentShopId = shopId;
+    storesView.classList.add('hidden');
+    productsView.classList.remove('hidden');
+    document.getElementById('productsShopTitle').textContent = `منتجات: ${shopName}`;
+    // Set the category BEFORE resetting the forms below, since the reset
+    // functions render category-specific attribute fields (weight/expiry,
+    // size/colour, etc.) off this value.
+    const shop = (window._shopsCache || []).find(s => s.id === shopId);
+    currentShopCategoryId = shop ? shop.category_id : null;
+    resetProductForm();
+    loadProducts();
+    loadAdminConnectors();
+    // Products may only be tagged with a subcategory from their OWN shop's
+    // category (an "electronics" shop can't tag a product "بيتزا") — same
+    // rule admin_router.py enforces server-side via _validate_subcategory.
+    if (shop) {
+      loadSubcategoriesForDropdown(shop.category_id, null, 'productSubcategoryInput');
+      loadSubcategoriesForDropdown(shop.category_id, null, 'fastPickSubcategoryInput');
+    }
+    resetFastPickForm();
+  }
+  window.openProducts = openProducts;
+
+  document.getElementById('backToShopsLink').addEventListener('click', () => {
+    productsView.classList.add('hidden');
+    storesView.classList.remove('hidden');
+  });
+
+  function resetProductForm() {
+    editingProductId = null;
+    document.getElementById('productFormTitle').textContent = 'إضافة منتج جديد';
+    document.getElementById('productNameInput').value = '';
+    document.getElementById('productSubcategoryInput').value = '';
+    document.getElementById('productDescInput').value = '';
+    document.getElementById('productImageInput').value = '';
+    document.getElementById('productPriceInput').value = '';
+    document.getElementById('productStockInput').value = '';
+    document.getElementById('cancelProductEditBtn').classList.add('hidden');
+    resetAttrChoiceState('productAttrsContainer', currentShopCategoryId);
+    renderAttrFields('productAttrsContainer', currentShopCategoryId, {});
+  }
+
+  document.getElementById('cancelProductEditBtn').addEventListener('click', resetProductForm);
+
+  document.getElementById('saveProductBtn').addEventListener('click', async () => {
+    hideError(productFormError);
+    const name = document.getElementById('productNameInput').value.trim();
+    const subcategory_id = document.getElementById('productSubcategoryInput').value || null;
+    const description = document.getElementById('productDescInput').value.trim() || null;
+    const image_url = document.getElementById('productImageInput').value.trim() || null;
+    const priceRaw = document.getElementById('productPriceInput').value;
+    const stockRaw = document.getElementById('productStockInput').value;
+    const price = parseFloat(priceRaw);
+    const stock_quantity = stockRaw !== '' ? parseInt(stockRaw, 10) : 0;
+    const attributes = collectAttrValues('productAttrsContainer', currentShopCategoryId);
+
+    if (!name) { showError(productFormError, 'يرجى إدخال اسم المنتج.'); return; }
+    if (!priceRaw || isNaN(price) || price <= 0) { showError(productFormError, 'يرجى إدخال سعر صحيح.'); return; }
+
+    const btn = document.getElementById('saveProductBtn');
+    btn.disabled = true;
+    try {
+      if (editingProductId) {
+        await apiFetch(`/admin/products/${editingProductId}`, {
+          method: 'PATCH',
+          // "" (not null) means "clear the subcategory" — see
+          // AdminProductUpdateRequest's clear-to-null convention.
+          body: JSON.stringify({ name, description, image_url, price, stock_quantity, subcategory_id: subcategory_id || '', attributes }),
+        });
+      } else {
+        await apiFetch(`/admin/shops/${currentShopId}/products`, {
+          method: 'POST',
+          body: JSON.stringify({ name, subcategory_id, description, image_url, price, stock_quantity, attributes }),
+        });
+      }
+      resetProductForm();
+      await loadProducts();
+      await loadShops(); // refresh product counts in the background list
+    } catch (e) {
+      showError(productFormError, e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  async function loadProducts() {
+    hideError(productsError);
+    const container = document.getElementById('productsList');
+    container.innerHTML = 'جاري التحميل...';
+    try {
+      const products = await apiFetch(`/admin/shops/${currentShopId}/products`);
+      if (products.length === 0) { container.innerHTML = 'لا توجد منتجات بعد'; return; }
+      container.innerHTML = products.map(p => `
+        <div class="item-card">
+          <img src="${p.image_url || ''}" onerror="this.style.visibility='hidden'" />
+          <div class="info">
+            <div class="name">${escapeHtml(p.name)}</div>
+            <div class="meta">${p.price} ج.م • ${p.stock_quantity} بالمخزون ${p.in_stock ? '' : '• غير متوفر'}</div>
+          </div>
+          <button class="small secondary" onclick="editProduct('${p.id}')">تعديل</button>
+          <button class="small danger" onclick="deleteProduct('${p.id}', '${escapeHtml(p.name)}')">حذف</button>
+        </div>
+      `).join('');
+      window._productsCache = products;
+      renderFastPicks(products);
+    } catch (e) {
+      showError(productsError, e.message);
+      container.innerHTML = '';
+    }
+  }
+
+  async function deleteProduct(productId, productName) {
+    if (!confirm(`هل أنت متأكد من حذف منتج "${productName}"؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
+    hideError(productsError);
+    try {
+      await apiFetch(`/admin/products/${productId}`, { method: 'DELETE' });
+      await loadProducts();
+      await loadShops(); // refresh product counts in the background list
+    } catch (e) {
+      // Covers the backend's guard: a product with order history can't be
+      // hard-deleted — set its stock to 0 instead to hide it from customers.
+      showError(productsError, e.message);
+    }
+  }
+  window.deleteProduct = deleteProduct;
+
+  function editProduct(productId) {
+    const product = window._productsCache.find(p => p.id === productId);
+    if (!product) return;
+    editingProductId = productId;
+    document.getElementById('productFormTitle').textContent = `تعديل: ${product.name}`;
+    document.getElementById('productNameInput').value = product.name;
+    document.getElementById('productDescInput').value = product.description || '';
+    document.getElementById('productImageInput').value = product.image_url || '';
+    document.getElementById('productPriceInput').value = product.price;
+    document.getElementById('productStockInput').value = product.stock_quantity;
+    // Dropdown is already populated for this shop's category (set by
+    // openProducts) — just select the product's current value, or clear it.
+    document.getElementById('productSubcategoryInput').value = product.subcategory_id || '';
+    resetAttrChoiceState('productAttrsContainer', currentShopCategoryId);
+    renderAttrFields('productAttrsContainer', currentShopCategoryId, product.attributes || {});
+    document.getElementById('cancelProductEditBtn').classList.remove('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  window.editProduct = editProduct;
+
+  // --- AIO Fast Picks -------------------------------------------------------
+  // Separate add/edit flow, same underlying /admin/... product endpoints as
+  // above — the only real difference is this form also collects sale_price.
+  // A product only appears on the app's Fast Picks rails once sale_price is
+  // set lower than price (computed server-side as ProductResponse.is_on_sale).
+
+  let editingFastPickId = null;
+
+  function resetFastPickForm() {
+    editingFastPickId = null;
+    hideError(document.getElementById('fastPickFormError'));
+    document.querySelector('#productsView .fire-card .fire-title').innerHTML = '<span class="flame">🔥</span> إضافة منتج ضمن AIO Fast Picks';
+    document.getElementById('fastPickNameInput').value = '';
+    document.getElementById('fastPickSubcategoryInput').value = '';
+    document.getElementById('fastPickDescInput').value = '';
+    document.getElementById('fastPickImageInput').value = '';
+    document.getElementById('fastPickPriceInput').value = '';
+    document.getElementById('fastPickSalePriceInput').value = '';
+    document.getElementById('fastPickStockInput').value = '';
+    document.getElementById('cancelFastPickEditBtn').classList.add('hidden');
+    resetAttrChoiceState('fastPickAttrsContainer', currentShopCategoryId);
+    renderAttrFields('fastPickAttrsContainer', currentShopCategoryId, {});
+  }
+
+  document.getElementById('cancelFastPickEditBtn').addEventListener('click', resetFastPickForm);
+
+  document.getElementById('saveFastPickBtn').addEventListener('click', async () => {
+    const errEl = document.getElementById('fastPickFormError');
+    hideError(errEl);
+    const name = document.getElementById('fastPickNameInput').value.trim();
+    const subcategory_id = document.getElementById('fastPickSubcategoryInput').value || null;
+    const description = document.getElementById('fastPickDescInput').value.trim() || null;
+    const image_url = document.getElementById('fastPickImageInput').value.trim() || null;
+    const priceRaw = document.getElementById('fastPickPriceInput').value;
+    const salePriceRaw = document.getElementById('fastPickSalePriceInput').value;
+    const stockRaw = document.getElementById('fastPickStockInput').value;
+    const price = parseFloat(priceRaw);
+    const sale_price = parseFloat(salePriceRaw);
+    const stock_quantity = stockRaw !== '' ? parseInt(stockRaw, 10) : 0;
+    const attributes = collectAttrValues('fastPickAttrsContainer', currentShopCategoryId);
+
+    if (!name) { showError(errEl, 'يرجى إدخال اسم المنتج.'); return; }
+    if (!priceRaw || isNaN(price) || price <= 0) { showError(errEl, 'يرجى إدخال السعر قبل الخصم.'); return; }
+    if (!salePriceRaw || isNaN(sale_price) || sale_price <= 0) { showError(errEl, 'يرجى إدخال السعر بعد الخصم.'); return; }
+    if (sale_price >= price) { showError(errEl, 'السعر بعد الخصم يجب أن يكون أقل من السعر قبل الخصم.'); return; }
+
+    const btn = document.getElementById('saveFastPickBtn');
+    btn.disabled = true;
+    try {
+      if (editingFastPickId) {
+        await apiFetch(`/admin/products/${editingFastPickId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ name, description, image_url, price, sale_price, stock_quantity, subcategory_id: subcategory_id || '', attributes }),
+        });
+      } else {
+        await apiFetch(`/admin/shops/${currentShopId}/products`, {
+          method: 'POST',
+          body: JSON.stringify({ name, subcategory_id, description, image_url, price, sale_price, stock_quantity, attributes }),
+        });
+      }
+      resetFastPickForm();
+      await loadProducts(); // also refreshes the Fast Picks list below
+      await loadShops();
+    } catch (e) {
+      showError(errEl, e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  function renderFastPicks(allProducts) {
+    hideError(document.getElementById('fastPicksError'));
+    const container = document.getElementById('fastPicksList');
+    const fastPicks = allProducts.filter(p => p.is_on_sale);
+    if (fastPicks.length === 0) { container.innerHTML = 'لا توجد منتجات ضمن Fast Picks بعد'; return; }
+    container.innerHTML = fastPicks.map(p => `
+      <div class="item-card fire-item">
+        <img src="${p.image_url || ''}" onerror="this.style.visibility='hidden'" />
+        <div class="info">
+          <div class="name">${escapeHtml(p.name)} <span class="badge-fire">-${p.discount_percent}%</span></div>
+          <div class="meta">${p.sale_price} ج.م <span class="price-strike">${p.price} ج.م</span> • ${p.stock_quantity} بالمخزون ${p.in_stock ? '' : '• غير متوفر'}</div>
+        </div>
+        <button class="small secondary" onclick="editFastPick('${p.id}')">تعديل</button>
+        <button class="small secondary" onclick="removeFastPickDiscount('${p.id}', '${escapeHtml(p.name)}')">إزالة من Fast Picks</button>
+        <button class="small danger" onclick="deleteProduct('${p.id}', '${escapeHtml(p.name)}')">حذف</button>
+      </div>
+    `).join('');
+  }
+
+  function editFastPick(productId) {
+    const product = (window._productsCache || []).find(p => p.id === productId);
+    if (!product) return;
+    editingFastPickId = productId;
+    document.querySelector('#productsView .fire-card .fire-title').innerHTML = `<span class="flame">🔥</span> تعديل: ${escapeHtml(product.name)}`;
+    document.getElementById('fastPickNameInput').value = product.name;
+    document.getElementById('fastPickDescInput').value = product.description || '';
+    document.getElementById('fastPickImageInput').value = product.image_url || '';
+    document.getElementById('fastPickPriceInput').value = product.price;
+    document.getElementById('fastPickSalePriceInput').value = product.sale_price ?? '';
+    document.getElementById('fastPickStockInput').value = product.stock_quantity;
+    document.getElementById('fastPickSubcategoryInput').value = product.subcategory_id || '';
+    resetAttrChoiceState('fastPickAttrsContainer', currentShopCategoryId);
+    renderAttrFields('fastPickAttrsContainer', currentShopCategoryId, product.attributes || {});
+    document.getElementById('cancelFastPickEditBtn').classList.remove('hidden');
+    window.scrollTo({ top: document.querySelector('#productsView .fire-card').offsetTop - 20, behavior: 'smooth' });
+  }
+  window.editFastPick = editFastPick;
+
+  async function removeFastPickDiscount(productId, productName) {
+    // Clears the discount only — the product itself stays in the normal
+    // catalog, it just leaves the Fast Picks rails. Full deletion is the
+    // separate "حذف" button, same as any other product.
+    if (!confirm(`إزالة "${productName}" من AIO Fast Picks؟ سيبقى المنتج في المتجر بسعره العادي.`)) return;
+    hideError(document.getElementById('fastPicksError'));
+    try {
+      await apiFetch(`/admin/products/${productId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ sale_price: null }),
+      });
+      await loadProducts();
+    } catch (e) {
+      showError(document.getElementById('fastPicksError'), e.message);
+    }
+  }
+  window.removeFastPickDiscount = removeFastPickDiscount;
+
+</script>
+
+</body>
+</html>
+
