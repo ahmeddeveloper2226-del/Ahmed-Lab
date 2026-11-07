@@ -1,0 +1,63 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Only these fields, in these types, may ever be written by a client
+    // to their own profile doc. Anything else (e.g. someone trying to
+    // write `admin: true` or `subscribed: true` on themselves) is
+    // rejected outright.
+    function isValidProfileWrite() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['email', 'displayName', 'photoURL', 'provider', 'createdAt', 'lastLoginAt'])
+        && d.email is string
+        && (('displayName' in d) == false || d.displayName == null || d.displayName is string)
+        && (('photoURL' in d) == false || d.photoURL == null || d.photoURL is string)
+        && d.provider is string;
+    }
+
+    // users/{uid} — the client-writable profile doc, created/updated by
+    // assets/firebase-init.js:syncUserProfile() on every sign-in.
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create, update: if isOwner(uid) && isValidProfileWrite();
+      allow delete: if false;
+
+      // Payment history — written only by the backend's Admin SDK
+      // (server/routes/payment.js, inside the HMAC-verified webhook).
+      match /payments/{paymentId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+    }
+
+    // subscriptions/{uid} — current plan/expiry. Only the backend (Admin
+    // SDK) may write this, exclusively from the verified Paymob webhook.
+    // A user reads their own status; they can never grant it to themselves.
+    match /subscriptions/{uid} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
+    // pendingOrders/{merchantOrderId} — in-flight checkout bookkeeping.
+    // Contains the authoritative server-computed price; never exposed to
+    // any client in either direction.
+    match /pendingOrders/{orderId} {
+      allow read, write: if false;
+    }
+
+    // Deny everything else by default (defense in depth — nothing should
+    // ever fall through to here given the explicit matches above).
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

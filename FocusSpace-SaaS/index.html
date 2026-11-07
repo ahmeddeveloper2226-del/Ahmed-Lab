@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FocusSpace — Home</title>
+  <meta name="description" content="Welcome to FocusSpace. Access your focus workspace."/>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tabler Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.1.0/dist/tabler-icons.min.css"/>
+
+  <!-- React + ReactDOM + Babel -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+  <!-- Firebase Auth guard: redirects to login.html if not signed in / not verified -->
+  <script type="module" src="assets/auth-guard.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --color-background-primary:   rgba(255,255,255,0.90);
+      --color-background-secondary: rgba(237,232,255,0.55);
+      --color-background-tertiary:  #F5F3FF;
+      --color-text-primary:         #18102E;
+      --color-text-secondary:       #6B5B8E;
+      --color-text-tertiary:        #A898C8;
+      --color-border-tertiary:      rgba(214,205,240,0.65);
+      --color-border-secondary:     rgba(190,175,230,0.75);
+      --font-sans: 'Plus Jakarta Sans', sans-serif;
+      --font-display: 'Bricolage Grotesque', sans-serif;
+      --border-radius-md: 12px;
+      --border-radius-lg: 22px;
+      --nav-height: 70px;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-background-tertiary);
+      color: var(--color-text-primary);
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    h1, h2, h3 { font-family: var(--font-display); }
+
+    /* ── animated blobs ── */
+    body::before, body::after { content:''; position:fixed; border-radius:50%; pointer-events:none; z-index:0; }
+    body::before {
+      top:-18%; right:-12%;
+      width:58vw; height:58vw; max-width:600px; max-height:600px;
+      background: radial-gradient(circle at 40% 40%, rgba(111,66,255,0.17) 0%, rgba(180,150,255,0.07) 50%, transparent 72%);
+      animation: blobA 9s ease-in-out infinite;
+    }
+    body::after {
+      bottom:-18%; left:-10%;
+      width:52vw; height:52vw; max-width:540px; max-height:540px;
+      background: radial-gradient(circle at 60% 60%, rgba(255,77,141,0.14) 0%, rgba(255,150,180,0.06) 50%, transparent 72%);
+      animation: blobB 12s ease-in-out infinite;
+    }
+    #blob-mint {
+      position:fixed; top:45%; left:42%;
+      width:44vw; height:44vw; max-width:460px; max-height:460px;
+      border-radius:50%;
+      background: radial-gradient(circle, rgba(0,200,150,0.09) 0%, transparent 68%);
+      pointer-events:none; z-index:0;
+      animation: blobC 14s ease-in-out infinite;
+    }
+    @keyframes blobA { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(-22px,22px) scale(1.04)} 66%{transform:translate(14px,-14px) scale(0.97)} }
+    @keyframes blobB { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(18px,-18px) scale(1.03)} 66%{transform:translate(-12px,12px) scale(0.98)} }
+    @keyframes blobC { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-24px,18px) scale(1.06)} }
+
+    #root { position:relative; z-index:1; min-height:100vh; display:flex; flex-direction:column; }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: rgba(111,66,255,0.2); border-radius: 2px; }
+
+    /* animations */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    @keyframes scalePop { from{opacity:0;transform:scale(0.94)} to{opacity:1;transform:scale(1)} }
+    .anim-fade-up  { animation: fadeUp  0.5s cubic-bezier(0.22,1,0.36,1) both; }
+    .anim-fade-in  { animation: fadeIn  0.35s ease both; }
+    .anim-scale-pop{ animation: scalePop 0.45s cubic-bezier(0.22,1,0.36,1) both; }
+
+    /* ── Top Navigation Bar ── */
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      height: var(--nav-height);
+      background: rgba(245,243,255,0.82);
+      backdrop-filter: blur(24px) saturate(1.6);
+      -webkit-backdrop-filter: blur(24px) saturate(1.6);
+      border-bottom: 1px solid rgba(214,205,240,0.5);
+      display: flex;
+      align-items: center;
+      padding: 0 28px;
+      gap: 0;
+    }
+    .navbar-logo {
+      display: flex; align-items: center; gap: 10px;
+      text-decoration: none; margin-right: auto;
+      flex-shrink: 0;
+    }
+    .navbar-logo-icon {
+      width: 38px; height: 38px;
+      background: linear-gradient(135deg,#6F42FF 0%,#FF4D8D 100%);
+      border-radius: 11px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 14px rgba(111,66,255,0.38);
+      flex-shrink: 0;
+    }
+    .navbar-logo-text {
+      font-family: var(--font-display);
+      font-size: 20px; font-weight: 800;
+      background: linear-gradient(135deg,#6F42FF,#FF4D8D);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.02em;
+    }
+    .nav-tabs {
+      display: flex; gap: 4px;
+      background: rgba(237,232,255,0.55);
+      border-radius: 14px;
+      padding: 5px;
+      border: 1px solid rgba(214,205,240,0.6);
+    }
+    .nav-tab {
+      padding: 9px 20px;
+      border-radius: 10px;
+      border: none;
+      font-family: var(--font-sans);
+      font-size: 14px; font-weight: 600;
+      cursor: pointer;
+      transition: all 0.22s cubic-bezier(0.22,1,0.36,1);
+      color: var(--color-text-secondary);
+      background: transparent;
+      display: flex; align-items: center; gap: 7px;
+      white-space: nowrap;
+    }
+    .nav-tab:hover:not(.nav-tab--active) {
+      background: rgba(255,255,255,0.7);
+      color: var(--color-text-primary);
+    }
+    .nav-tab--active {
+      background: #fff;
+      color: #18102E;
+      box-shadow: 0 2px 12px rgba(111,66,255,0.13), 0 1px 0 rgba(255,255,255,0.9) inset;
+    }
+    .nav-tab--active .nav-tab-icon { color: #6F42FF; }
+
+    .nav-right {
+      display: flex; align-items: center; gap: 12px;
+      margin-left: 20px;
+    }
+    .nav-user-badge {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(237,232,255,0.7);
+      border: 1px solid rgba(214,205,240,0.7);
+      border-radius: 100px;
+      padding: 6px 14px 6px 8px;
+    }
+    .nav-user-avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: linear-gradient(135deg,#6F42FF,#FF4D8D);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; color: #fff; font-weight: 700;
+      flex-shrink: 0;
+    }
+    .nav-user-email {
+      font-size: 12px; font-weight: 600;
+      color: #4A28CC;
+      max-width: 160px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .nav-logout-btn {
+      background: none; border: none;
+      color: var(--color-text-tertiary);
+      cursor: pointer; font-size: 12px; font-weight: 600;
+      font-family: var(--font-sans);
+      padding: 6px 10px; border-radius: 8px;
+      transition: all 0.18s;
+    }
+    .nav-logout-btn:hover { color: #FF4D8D; background: rgba(255,77,141,0.08); }
+
+    /* ── Page Content ── */
+    .page-content {
+      flex: 1;
+      padding: 44px 24px 80px;
+      max-width: 700px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* ── Auth / Phone screens ── */
+    .centered-page {
+      display: flex; align-items: center; justify-content: center;
+      min-height: calc(100vh - var(--nav-height));
+      padding: 40px 20px;
+    }
+    .auth-card {
+      width: 100%; max-width: 420px;
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(24px) saturate(1.5);
+      -webkit-backdrop-filter: blur(24px) saturate(1.5);
+      border-radius: 24px;
+      border: 1px solid rgba(255,255,255,0.96);
+      box-shadow: 0 2px 32px rgba(111,66,255,0.07), 0 1px 0 rgba(255,255,255,0.85) inset;
+      padding: 32px 28px;
+    }
+
+    /* ── Home Tab: Focus Space card ── */
+    .focus-hero-card {
+      position: relative; overflow: hidden;
+      background: linear-gradient(135deg, #6F42FF 0%, #9B6FFF 45%, #FF4D8D 100%);
+      border-radius: 28px;
+      padding: 48px 40px;
+      cursor: pointer;
+      transition: transform 0.3s cubic-bezier(0.22,1,0.36,1), box-shadow 0.3s ease;
+      box-shadow: 0 8px 48px rgba(111,66,255,0.42), 0 2px 0 rgba(255,255,255,0.15) inset;
+      border: none; width: 100%; text-align: left;
+      margin-bottom: 28px;
+    }
+    .focus-hero-card:hover {
+      transform: translateY(-5px) scale(1.012);
+      box-shadow: 0 18px 60px rgba(111,66,255,0.52), 0 2px 0 rgba(255,255,255,0.15) inset;
+    }
+    .focus-hero-card:active { transform: translateY(-2px) scale(1.006); }
+    .focus-hero-orb {
+      position: absolute; border-radius: 50%; pointer-events: none;
+    }
+    .focus-hero-orb-1 {
+      width: 260px; height: 260px;
+      top: -80px; right: -60px;
+      background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, transparent 65%);
+    }
+    .focus-hero-orb-2 {
+      width: 160px; height: 160px;
+      bottom: -50px; left: 30px;
+      background: radial-gradient(circle, rgba(255,255,255,0.10) 0%, transparent 65%);
+    }
+    .focus-hero-badge {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.35);
+      border-radius: 100px; padding: 6px 14px;
+      font-size: 12px; font-weight: 700; color: #fff;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      margin-bottom: 20px; backdrop-filter: blur(8px);
+    }
+    .focus-hero-badge-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #7EFFCA;
+      box-shadow: 0 0 6px #7EFFCA;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(0.8)} }
+    .focus-hero-title {
+      font-family: var(--font-display);
+      font-size: 36px; font-weight: 800;
+      color: #fff; letter-spacing: -0.03em;
+      line-height: 1.15; margin-bottom: 12px;
+    }
+    .focus-hero-desc {
+      font-size: 15px; color: rgba(255,255,255,0.82);
+      font-weight: 500; line-height: 1.6;
+      margin-bottom: 30px; max-width: 380px;
+    }
+    .focus-hero-cta {
+      display: inline-flex; align-items: center; gap: 9px;
+      background: #fff;
+      color: #6F42FF;
+      border-radius: 14px; padding: 13px 22px;
+      font-family: var(--font-sans); font-weight: 700; font-size: 15px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      transition: all 0.22s;
+    }
+    .focus-hero-card:hover .focus-hero-cta {
+      background: #F5F0FF;
+      box-shadow: 0 6px 28px rgba(0,0,0,0.2);
+    }
+    .focus-hero-cta-arrow {
+      transition: transform 0.22s;
+    }
+    .focus-hero-card:hover .focus-hero-cta-arrow {
+      transform: translateX(4px);
+    }
+
+    /* ── Stats row below hero card ── */
+    .stats-row {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.96);
+      box-shadow: 0 2px 20px rgba(111,66,255,0.06);
+      padding: 20px 18px;
+      text-align: center;
+    }
+    .stat-icon {
+      width: 44px; height: 44px; border-radius: 13px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 10px; font-size: 22px;
+    }
+    .stat-label { font-size: 11px; font-weight: 700; color: var(--color-text-tertiary); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; }
+    .stat-value { font-size: 20px; font-weight: 800; font-family: var(--font-display); color: var(--color-text-primary); letter-spacing: -0.02em; }
+    .stat-card-clickable { cursor: pointer; border: 1px solid rgba(255,255,255,0.96); font-family: var(--font-sans); transition: all 0.2s; width: 100%; }
+    .stat-card-clickable:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(111,66,255,0.14); border-color: rgba(155,138,255,0.5); }
+
+    /* ── Welcome banner ── */
+    .welcome-banner {
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.96);
+      box-shadow: 0 2px 20px rgba(111,66,255,0.06);
+      padding: 20px 22px;
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 28px;
+    }
+    .welcome-avatar {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: linear-gradient(135deg,#EDE8FF,#DDD4FF);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; font-weight: 800; color: #6F42FF;
+      flex-shrink: 0; font-family: var(--font-display);
+      border: 2px solid rgba(111,66,255,0.15);
+    }
+    .welcome-texts { flex: 1; }
+    .welcome-greeting { font-size: 13px; color: var(--color-text-secondary); font-weight: 500; margin-bottom: 2px; }
+    .welcome-name { font-size: 18px; font-weight: 800; font-family: var(--font-display); letter-spacing: -0.02em; }
+    .welcome-phone-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: linear-gradient(135deg,#EDE8FF,#DDD4FF);
+      border: 1px solid rgba(111,66,255,0.18);
+      border-radius: 100px; padding: 5px 12px;
+      font-size: 12px; font-weight: 700; color: #4A28CC;
+      white-space: nowrap; flex-shrink: 0;
+    }
+
+    /* ── Input & Button shared ── */
+    .inp {
+      width: 100%; padding: 13px 16px;
+      border: 1.5px solid var(--color-border-secondary);
+      border-radius: 14px; font-family: var(--font-sans); font-size: 15px;
+      color: var(--color-text-primary);
+      background: rgba(255,255,255,0.85);
+      outline: none; transition: all 0.2s;
+    }
+    .inp:focus { border-color: #9B8AFF; box-shadow: 0 0 0 4px #EDE8FF; background: #fff; }
+    .btn-primary {
+      background: linear-gradient(135deg,#6F42FF 0%,#FF4D8D 100%);
+      color: #fff; border: none; border-radius: 14px; padding: 14px 22px;
+      font-family: var(--font-sans); font-weight: 700; font-size: 15px;
+      cursor: pointer; width: 100%; letter-spacing: -0.01em;
+      box-shadow: 0 4px 22px rgba(111,66,255,0.38), 0 1px 0 rgba(255,255,255,0.2) inset;
+      transition: all 0.22s;
+    }
+    .btn-primary:hover:not(:disabled) { box-shadow: 0 8px 30px rgba(111,66,255,0.5); transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn-secondary {
+      background: rgba(255,255,255,0.82); color: var(--color-text-primary);
+      border: 1.5px solid var(--color-border-tertiary);
+      border-radius: 14px; padding: 12px 20px;
+      font-family: var(--font-sans); font-weight: 600; font-size: 14px;
+      cursor: pointer; transition: all 0.18s;
+      backdrop-filter: blur(8px);
+    }
+    .btn-secondary:hover { border-color: #9B8AFF; box-shadow: 0 4px 16px rgba(111,66,255,0.12); }
+    .lbl {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--color-text-secondary);
+      display: block; margin-bottom: 8px;
+    }
+    .err-box {
+      margin-top: 10px; padding: 11px 14px;
+      background: #FFE8F2; border-radius: 12px;
+      color: #A0164A; font-size: 13px; font-weight: 500;
+      border: 1px solid rgba(255,77,141,0.2); border-left: 3px solid #FF4D8D;
+    }
+    .ok-box {
+      margin-top: 10px; padding: 11px 14px;
+      background: #DCFDF4; border-radius: 12px;
+      color: #006A4E; font-size: 13px; font-weight: 500;
+      border: 1px solid rgba(0,200,150,0.2); border-left: 3px solid #00C896;
+    }
+    .sr-only { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0; }
+
+    /* responsive */
+    @media (max-width: 600px) {
+      .focus-hero-card { padding: 34px 24px; }
+      .focus-hero-title { font-size: 28px; }
+      .stats-row { grid-template-columns: 1fr 1fr; }
+      .stats-row .stat-card:last-child { grid-column: span 2; }
+
+      .nav-tabs { gap: 2px; }
+      .nav-tab { padding: 8px 13px; font-size: 13px; }
+      .navbar { padding: 0 16px; }
+      .page-content { padding: 30px 16px 70px; }
+      .navbar-logo-text { display: none; }
+      .nav-user-email { max-width: 90px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="blob-mint"></div>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+
+    /* ══════════════════════════════════════════
+       SUBSCRIPTION GATE
+       Replaces the old phone-number allowedUsers check.
+       Access to the workspace (homep.html) now depends purely on
+       having an active paid subscription, verified server-side.
+    ══════════════════════════════════════════ */
+    async function checkSubscriptionAndRoute() {
+      try {
+        const res = await window.FS.authedFetch("/api/subscription/status");
+        const data = await res.json();
+        if (res.ok && data.subscribed) {
+          window.location.href = "homep.html";
+        } else {
+          window.location.href = "plans.html";
+        }
+      } catch (e) {
+        console.error("[subscription check] failed:", e.message);
+        window.location.href = "plans.html";
+      }
+    }
+
+    /* ══════════════════════════════════════════
+       NAVBAR COMPONENT
+    ══════════════════════════════════════════ */
+    function initials(user) {
+      const src = user?.displayName || user?.email || "?";
+      return src.trim().slice(0, 1).toUpperCase();
+    }
+
+    function Navbar({ activeTab, onTabChange, user, onLogout }) {
+      const tabs = [
+        { id: "home",     label: "Home",      icon: "ti-home-2" },
+      ];
+
+      return (
+        <nav className="navbar" role="navigation" aria-label="Main navigation">
+          {/* Logo */}
+          <a href="#" className="navbar-logo" aria-label="FocusSpace Home" onClick={e=>{e.preventDefault();onTabChange("home");}}>
+            <div className="navbar-logo-icon">
+              <i className="ti ti-bolt" style={{fontSize:20,color:"#fff"}} aria-hidden="true"/>
+            </div>
+            <span className="navbar-logo-text">FocusSpace</span>
+          </a>
+
+          {/* Tabs */}
+          <div className="nav-tabs" role="tablist">
+            {tabs.map(t => (
+              <button
+                key={t.id}
+                id={`nav-tab-${t.id}`}
+                role="tab"
+                aria-selected={activeTab === t.id}
+                className={`nav-tab${activeTab===t.id?" nav-tab--active":""}`}
+                onClick={()=>onTabChange(t.id)}
+              >
+                <i className={`ti ${t.icon} nav-tab-icon`} aria-hidden="true" style={{fontSize:15}}/>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* User badge + logout */}
+          {user && (
+            <div className="nav-right">
+              <div className="nav-user-badge">
+                <div className="nav-user-avatar">{initials(user)}</div>
+                <span className="nav-user-email">{user.displayName || user.email}</span>
+              </div>
+              <button className="nav-logout-btn" onClick={onLogout} aria-label="Sign out">
+                <i className="ti ti-logout-2" aria-hidden="true" style={{fontSize:14,verticalAlign:"-2px",marginRight:4}}/>
+                Sign out
+              </button>
+            </div>
+          )}
+        </nav>
+      );
+    }
+
+    /* ══════════════════════════════════════════
+       HOME TAB
+    ══════════════════════════════════════════ */
+    function HomeTab({ onFocusSpaceClick, checkingAccess, user }) {
+      const [stats, setStats] = useState(null);
+
+      useEffect(() => {
+        window.FS.getUserStats?.()
+          .then(setStats)
+          .catch(e => { console.error("[stats] failed:", e.message); setStats({}); });
+      }, []);
+
+      const totalScore = stats?.totalScore ?? 0;
+      const streak = stats?.currentStreak ?? 0;
+
+      return (
+        <div className="page-content anim-fade-up">
+          {/* Welcome banner */}
+          <div className="welcome-banner">
+            <div className="welcome-avatar"><i className="ti ti-bolt" aria-hidden="true"/></div>
+            <div className="welcome-texts">
+              <div className="welcome-greeting">Good to see you 👋</div>
+              <div className="welcome-name">{user?.displayName || "Ready when you are"}</div>
+            </div>
+          </div>
+
+          {/* Score / Streak cards */}
+          <div className="stats-row" style={{gridTemplateColumns:"1fr 1fr"}}>
+            <button className="stat-card stat-card-clickable" onClick={()=>window.location.href="scores.html"} aria-label="View your session history">
+              <div className="stat-icon" style={{background:"#EDE8FF"}}><i className="ti ti-star-filled" style={{color:"#6F42FF"}} aria-hidden="true"/></div>
+              <div className="stat-label">Total Score</div>
+              <div className="stat-value">{stats===null ? "…" : totalScore.toLocaleString()}</div>
+            </button>
+            <button className="stat-card stat-card-clickable" onClick={()=>window.location.href="leaderboard.html"} aria-label="View the leaderboard">
+              <div className="stat-icon" style={{background:"#FFF0D6"}}><i className="ti ti-flame" style={{color:"#FF9500"}} aria-hidden="true"/></div>
+              <div className="stat-label">Day Streak</div>
+              <div className="stat-value">{stats===null ? "…" : streak}</div>
+            </button>
+          </div>
+
+          {/* Big Focus Space card */}
+          <button
+            id="focus-space-launch-btn"
+            className="focus-hero-card"
+            onClick={onFocusSpaceClick}
+            disabled={checkingAccess}
+            aria-label="Open Focus Space"
+          >
+            <div className="focus-hero-orb focus-hero-orb-1"/>
+            <div className="focus-hero-orb focus-hero-orb-2"/>
+
+            <div className="focus-hero-badge">
+              <span className="focus-hero-badge-dot"/>
+              Ready to focus
+            </div>
+
+            <h2 className="focus-hero-title">Focus Space</h2>
+            <p className="focus-hero-desc">
+              Plan your session, set your tasks, and enter deep focus mode.<br/>
+              Requires an active subscription.
+            </p>
+
+            <div className="focus-hero-cta">
+              {checkingAccess ? (
+                <i className="ti ti-loader-2" style={{fontSize:18,color:"#6F42FF",animation:"spin 0.8s linear infinite"}} aria-hidden="true"/>
+              ) : (
+                <>
+                  <i className="ti ti-bolt" style={{fontSize:18,color:"#6F42FF"}} aria-hidden="true"/>
+                  Enter Focus Space
+                  <i className="ti ti-arrow-right focus-hero-cta-arrow" style={{fontSize:17}} aria-hidden="true"/>
+                </>
+              )}
+            </div>
+          </button>
+        </div>
+      );
+    }
+
+    /* ══════════════════════════════════════════
+       MAIN APP
+    ══════════════════════════════════════════ */
+    function App() {
+      const [tab, setTab] = useState("home");
+      const [checkingAccess, setCheckingAccess] = useState(false);
+      const [user, setUser] = useState(null);
+      const [authChecking, setAuthChecking] = useState(true);
+
+      useEffect(() => {
+        // window.FS.ready is created by assets/auth-guard.js. If the visitor
+        // isn't signed in / verified, that module has already redirected
+        // them to login.html and this promise simply never resolves.
+        window.FS.ready.then((u) => {
+          setUser(u);
+          setAuthChecking(false);
+        });
+      }, []);
+
+      if (authChecking) {
+        return (
+          <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh"}}>
+            <i className="ti ti-loader-2" style={{fontSize:36,color:"#9B8AFF",animation:"spin 0.8s linear infinite"}} aria-hidden="true"/>
+          </div>
+        );
+      }
+
+      return (
+        <>
+          <Navbar activeTab={tab} onTabChange={setTab} user={user} onLogout={()=>window.FS.logout()}/>
+          {tab === "home"     && <HomeTab user={user} checkingAccess={checkingAccess} onFocusSpaceClick={async()=>{
+            setCheckingAccess(true);
+            await checkSubscriptionAndRoute();
+            setCheckingAccess(false);
+          }}/>}
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+  </script>
+</body>
+</html>

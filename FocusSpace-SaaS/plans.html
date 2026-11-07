@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FocusSpace — Plans</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.1.0/dist/tabler-icons.min.css"/>
+<!-- Firebase Auth guard: redirects to login.html if not signed in / not verified -->
+<script type="module" src="assets/auth-guard.js"></script>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Plus Jakarta Sans',sans-serif;background:#F5F3FF;color:#18102E;min-height:100vh;padding:40px 20px;}
+  h1{font-family:'Bricolage Grotesque',sans-serif;font-size:32px;text-align:center;margin-bottom:8px;}
+  p.sub{text-align:center;color:#6B5B8E;margin-bottom:32px;font-weight:500;}
+  .wrap{max-width:960px;margin:0 auto;}
+  .country-row{display:flex;justify-content:center;margin-bottom:32px;}
+  select{padding:10px 16px;border-radius:12px;border:1px solid #D6CDF0;font-size:14px;font-weight:600;font-family:inherit;background:#fff;color:#18102E;}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;}
+  .card{background:#fff;border:1px solid rgba(214,205,240,0.65);border-radius:22px;padding:28px 22px;text-align:center;display:flex;flex-direction:column;gap:14px;}
+  .card.featured{border:2px solid #9B8AFF;box-shadow:0 8px 24px rgba(155,138,255,0.25);}
+  .plan-name{font-weight:800;font-size:18px;}
+  .plan-price{font-family:'Bricolage Grotesque',sans-serif;font-size:34px;font-weight:800;}
+  .plan-currency{font-size:14px;color:#6B5B8E;font-weight:600;}
+  .plan-period{color:#A898C8;font-size:13px;font-weight:600;}
+  button.buy{margin-top:8px;background:linear-gradient(135deg,#9B8AFF,#7B5FFF);color:#fff;border:none;border-radius:100px;padding:12px 20px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;}
+  button.buy:disabled{opacity:0.55;cursor:not-allowed;}
+  .msg{text-align:center;margin-top:24px;font-weight:600;color:#B23A48;}
+  .loading{text-align:center;color:#6B5B8E;font-weight:600;}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Choose your plan</h1>
+    <p class="sub">Available in Egypt and Gulf countries. Prices shown in your local currency.</p>
+
+    <div class="country-row">
+      <select id="countrySelect"></select>
+    </div>
+
+    <div id="cards" class="cards"><div class="loading">Loading plans…</div></div>
+    <div id="msg" class="msg"></div>
+  </div>
+
+<script>
+  const countrySelect = document.getElementById("countrySelect");
+  const cardsEl = document.getElementById("cards");
+  const msgEl = document.getElementById("msg");
+
+  async function loadCountries() {
+    const res = await fetch("/api/plans/countries");
+    const data = await res.json();
+    countrySelect.innerHTML = data.countries
+      .map((c) => `<option value="${c.code}">${c.name} (${c.currency})</option>`)
+      .join("");
+
+    const guess = (navigator.language || "").toUpperCase();
+    const match = data.countries.find((c) => guess.includes(c.code));
+    countrySelect.value = match ? match.code : "EG";
+
+    loadPlans(countrySelect.value);
+  }
+
+  async function loadPlans(countryCode) {
+    cardsEl.innerHTML = '<div class="loading">Loading plans…</div>';
+    msgEl.textContent = "";
+    try {
+      const res = await fetch(`/api/plans/for-country/${countryCode}`);
+      const data = await res.json();
+      if (!res.ok) {
+        cardsEl.innerHTML = "";
+        msgEl.textContent = data.error || "Could not load plans for this country.";
+        return;
+      }
+      renderPlans(data.plans);
+    } catch (e) {
+      cardsEl.innerHTML = "";
+      msgEl.textContent = "Network error loading plans.";
+    }
+  }
+
+  function renderPlans(plans) {
+    cardsEl.innerHTML = plans
+      .map(
+        (p) => `
+      <div class="card ${p.id === "quarterly" ? "featured" : ""}">
+        <div class="plan-name">${p.label}</div>
+        <div class="plan-price">${p.amount ?? "—"}</div>
+        <div class="plan-currency">${p.currency}</div>
+        <div class="plan-period">${p.days} days access</div>
+        <button class="buy" data-plan="${p.id}">Subscribe</button>
+      </div>`
+      )
+      .join("");
+
+    cardsEl.querySelectorAll("button.buy").forEach((btn) => {
+      btn.addEventListener("click", () => startCheckout(btn.dataset.plan));
+    });
+  }
+
+  async function startCheckout(planId) {
+    msgEl.textContent = "";
+    document.querySelectorAll("button.buy").forEach((b) => (b.disabled = true));
+    msgEl.textContent = "Preparing secure payment…";
+
+    try {
+      await window.FS.ready; // ensure signed-in + FS.authedFetch is ready
+      const res = await window.FS.authedFetch("/api/payment/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId, countryCode: countrySelect.value }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.iframeUrl) {
+        msgEl.textContent = data.error || "Could not start payment.";
+        document.querySelectorAll("button.buy").forEach((b) => (b.disabled = false));
+        return;
+      }
+      window.location.href = data.iframeUrl;
+    } catch (e) {
+      msgEl.textContent = "Network error starting payment.";
+      document.querySelectorAll("button.buy").forEach((b) => (b.disabled = false));
+    }
+  }
+
+  countrySelect.addEventListener("change", () => loadPlans(countrySelect.value));
+
+  loadCountries();
+</script>
+</body>
+</html>

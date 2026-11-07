@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FocusSpace — Leaderboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.1.0/dist/tabler-icons.min.css"/>
+<!-- Firebase Auth guard: redirects to login.html if not signed in / not verified -->
+<script type="module" src="assets/auth-guard.js"></script>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Plus Jakarta Sans',sans-serif;background:#F5F3FF;color:#18102E;min-height:100vh;padding:32px 18px 60px;}
+  .wrap{max-width:640px;margin:0 auto;}
+  .back-link{display:inline-flex;align-items:center;gap:6px;color:#6B5B8E;font-weight:700;font-size:13px;text-decoration:none;margin-bottom:20px;}
+  .back-link:hover{color:#6F42FF;}
+  h1{font-family:'Bricolage Grotesque',sans-serif;font-size:28px;font-weight:800;letter-spacing:-0.02em;margin-bottom:4px;}
+  p.sub{color:#6B5B8E;font-weight:500;margin-bottom:22px;font-size:14px;}
+
+  .your-streak{background:linear-gradient(135deg,#FFF0D6,#FFE5B4);border:1px solid rgba(255,149,0,0.25);border-radius:18px;padding:18px 20px;display:flex;align-items:center;gap:14px;margin-bottom:22px;}
+  .your-streak .flame{width:44px;height:44px;border-radius:13px;background:rgba(255,255,255,0.6);display:flex;align-items:center;justify-content:center;font-size:22px;color:#FF9500;flex-shrink:0;}
+  .your-streak .txt{font-size:13px;font-weight:600;color:#7A4400;}
+  .your-streak .num{font-family:'Bricolage Grotesque',sans-serif;font-size:22px;font-weight:800;color:#7A4400;}
+
+  .prizes{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:26px;}
+  .prize{background:#fff;border:1px solid rgba(214,205,240,0.65);border-radius:16px;padding:16px 10px;text-align:center;}
+  .prize .medal{font-size:22px;margin-bottom:6px;}
+  .prize .place{font-size:11px;font-weight:700;color:#A898C8;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;}
+  .prize .reward{font-weight:800;font-size:13px;color:#18102E;}
+
+  h2{font-size:15px;font-weight:800;margin-bottom:12px;letter-spacing:-0.01em;}
+  .board{background:#fff;border:1px solid rgba(214,205,240,0.65);border-radius:18px;overflow:hidden;margin-bottom:20px;}
+  .row{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid rgba(214,205,240,0.4);}
+  .row:last-child{border-bottom:none;}
+  .rank{width:28px;font-weight:800;font-family:'Bricolage Grotesque',sans-serif;font-size:15px;color:#A898C8;text-align:center;flex-shrink:0;}
+  .rank.top1{color:#FFB800;} .rank.top2{color:#9CA3AF;} .rank.top3{color:#C08552;}
+  .name{flex:1;font-weight:700;font-size:14px;}
+  .streak-badge{display:flex;align-items:center;gap:5px;font-weight:800;font-size:13px;color:#FF9500;}
+  .empty{text-align:center;padding:40px 20px;color:#A898C8;font-weight:600;font-size:13px;}
+  .note{font-size:12px;color:#A898C8;font-weight:500;line-height:1.6;text-align:center;margin-top:6px;}
+  .loading{text-align:center;color:#6B5B8E;font-weight:600;padding:30px;}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <a href="index.html" class="back-link"><i class="ti ti-arrow-left"></i> Back to Home</a>
+    <h1>Leaderboard</h1>
+    <p class="sub">Ranked by current daily streak. Top 3 each week win free access.</p>
+
+    <div class="your-streak">
+      <div class="flame"><i class="ti ti-flame"></i></div>
+      <div>
+        <div class="txt">Your current streak</div>
+        <div class="num" id="yourStreak">—</div>
+      </div>
+    </div>
+
+    <div class="prizes">
+      <div class="prize"><div class="medal">🥇</div><div class="place">1st place</div><div class="reward">2 months free</div></div>
+      <div class="prize"><div class="medal">🥈</div><div class="place">2nd place</div><div class="reward">1 month free</div></div>
+      <div class="prize"><div class="medal">🥉</div><div class="place">3rd place</div><div class="reward">14 days free</div></div>
+    </div>
+
+    <h2>Top streaks right now</h2>
+    <div id="board"><div class="loading">Loading leaderboard…</div></div>
+    <p class="note">Rewards are paid out automatically every Monday to that week's top 3 — no need to claim anything. Rankings above update every ~15 minutes.</p>
+  </div>
+
+<script>
+  async function init() {
+    await window.FS.ready;
+    const [stats, board] = await Promise.all([
+      window.FS.getUserStats(),
+      window.FS.getLeaderboard(),
+    ]);
+
+    document.getElementById("yourStreak").textContent = `${stats.currentStreak || 0} day${(stats.currentStreak||0)===1?"":"s"}`;
+
+    const boardEl = document.getElementById("board");
+    const top = board.top || [];
+    if (!top.length) {
+      boardEl.innerHTML = `<div class="empty">No streaks yet — be the first to finish a session today.</div>`;
+      return;
+    }
+
+    boardEl.innerHTML = top.map((u, i) => `
+      <div class="row">
+        <div class="rank ${i===0?"top1":i===1?"top2":i===2?"top3":""}">${i+1}</div>
+        <div class="name">${escapeHtml(u.name)}</div>
+        <div class="streak-badge"><i class="ti ti-flame"></i>${u.streak}</div>
+      </div>
+    `).join("");
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  }
+
+  init().catch(e => {
+    console.error("[leaderboard] failed:", e.message);
+    document.getElementById("board").innerHTML = `<div class="empty">Couldn't load the leaderboard. Please refresh.</div>`;
+  });
+</script>
+</body>
+</html>

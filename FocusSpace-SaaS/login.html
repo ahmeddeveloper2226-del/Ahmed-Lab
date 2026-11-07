@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FocusSpace — Sign in</title>
+  <meta name="description" content="Sign in or create your FocusSpace account."/>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.1.0/dist/tabler-icons.min.css"/>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-text-primary:   #18102E;
+      --color-text-secondary: #6B5B8E;
+      --color-text-tertiary:  #A898C8;
+      --color-border-tertiary:  rgba(214,205,240,0.65);
+      --color-border-secondary: rgba(190,175,230,0.75);
+      --font-sans: 'Plus Jakarta Sans', sans-serif;
+      --font-display: 'Bricolage Grotesque', sans-serif;
+    }
+    html, body { height: 100%; }
+    body {
+      font-family: var(--font-sans);
+      background: #F5F3FF;
+      color: var(--color-text-primary);
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+      padding: 32px 18px;
+    }
+    body::before, body::after { content:''; position:fixed; border-radius:50%; pointer-events:none; z-index:0; }
+    body::before {
+      top:-18%; right:-12%; width:58vw; height:58vw; max-width:600px; max-height:600px;
+      background: radial-gradient(circle at 40% 40%, rgba(111,66,255,0.17) 0%, rgba(180,150,255,0.07) 50%, transparent 72%);
+      animation: blobA 9s ease-in-out infinite;
+    }
+    body::after {
+      bottom:-18%; left:-10%; width:52vw; height:52vw; max-width:540px; max-height:540px;
+      background: radial-gradient(circle at 60% 60%, rgba(255,77,141,0.14) 0%, rgba(255,150,180,0.06) 50%, transparent 72%);
+      animation: blobB 12s ease-in-out infinite;
+    }
+    @keyframes blobA { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(-22px,22px) scale(1.04)} 66%{transform:translate(14px,-14px) scale(0.97)} }
+    @keyframes blobB { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(18px,-18px) scale(1.03)} 66%{transform:translate(-12px,12px) scale(0.98)} }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+    .wrap { position:relative; z-index:1; width:100%; max-width:420px; animation: fadeUp 0.5s cubic-bezier(0.22,1,0.36,1) both; }
+
+    .brand { display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:26px; }
+    .brand-icon {
+      width: 40px; height: 40px; background: linear-gradient(135deg,#6F42FF 0%,#FF4D8D 100%);
+      border-radius: 12px; display:flex; align-items:center; justify-content:center;
+      box-shadow: 0 4px 14px rgba(111,66,255,0.38);
+    }
+    .brand-text {
+      font-family: var(--font-display); font-size: 22px; font-weight: 800;
+      background: linear-gradient(135deg,#6F42FF,#FF4D8D); -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent; background-clip:text; letter-spacing:-0.02em;
+    }
+
+    .auth-card {
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(24px) saturate(1.5); -webkit-backdrop-filter: blur(24px) saturate(1.5);
+      border-radius: 24px; border: 1px solid rgba(255,255,255,0.96);
+      box-shadow: 0 2px 32px rgba(111,66,255,0.09), 0 1px 0 rgba(255,255,255,0.85) inset;
+      padding: 30px 26px;
+    }
+
+    .tabs { display:flex; gap:4px; background: rgba(237,232,255,0.55); border-radius:14px; padding:5px;
+      border:1px solid rgba(214,205,240,0.6); margin-bottom:22px; }
+    .tab-btn { flex:1; padding:10px; border-radius:10px; border:none; font-family:var(--font-sans);
+      font-size:13.5px; font-weight:700; cursor:pointer; transition: all 0.2s; color: var(--color-text-secondary); background:transparent; }
+    .tab-btn.active { background:#fff; color:#18102E; box-shadow: 0 2px 12px rgba(111,66,255,0.13); }
+
+    h1.card-title { font-family: var(--font-display); font-size: 21px; font-weight: 800; letter-spacing:-0.02em; margin-bottom: 4px; }
+    p.card-sub { font-size: 13px; color: var(--color-text-secondary); font-weight: 500; margin-bottom: 20px; line-height:1.5; }
+
+    .field { margin-bottom: 14px; }
+    .lbl { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-text-secondary); display:block; margin-bottom:7px; }
+    .inp { width:100%; padding: 12px 14px; border: 1.5px solid var(--color-border-secondary); border-radius: 13px;
+      font-family: var(--font-sans); font-size: 14.5px; color: var(--color-text-primary);
+      background: rgba(255,255,255,0.85); outline:none; transition: all 0.2s; }
+    .inp:focus { border-color:#9B8AFF; box-shadow: 0 0 0 4px #EDE8FF; background:#fff; }
+    .pw-wrap { position:relative; }
+    .pw-toggle { position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:var(--color-text-tertiary); font-size:16px; padding:4px; }
+
+    .btn-primary { background: linear-gradient(135deg,#6F42FF 0%,#FF4D8D 100%); color:#fff; border:none; border-radius:14px;
+      padding: 13px 20px; font-family: var(--font-sans); font-weight:700; font-size:14.5px; cursor:pointer; width:100%;
+      box-shadow: 0 4px 22px rgba(111,66,255,0.38); transition: all 0.2s; display:flex; align-items:center; justify-content:center; gap:8px; }
+    .btn-primary:hover:not(:disabled) { box-shadow: 0 8px 30px rgba(111,66,255,0.5); transform: translateY(-1px); }
+    .btn-primary:disabled { opacity:0.55; cursor:not-allowed; transform:none; }
+
+    .btn-google { background:#fff; color:#18102E; border:1.5px solid var(--color-border-tertiary); border-radius:14px;
+      padding:12px 20px; font-family:var(--font-sans); font-weight:700; font-size:14px; cursor:pointer; width:100%;
+      display:flex; align-items:center; justify-content:center; gap:10px; transition: all 0.2s; }
+    .btn-google:hover:not(:disabled) { border-color:#9B8AFF; box-shadow: 0 4px 16px rgba(111,66,255,0.12); }
+    .btn-google:disabled { opacity:0.55; cursor:not-allowed; }
+
+    .btn-text { background:none; border:none; color:#6F42FF; font-weight:700; font-size:12.5px; cursor:pointer; font-family:var(--font-sans); padding:4px; }
+    .btn-text:disabled { color: var(--color-text-tertiary); cursor:not-allowed; }
+
+    .divider { display:flex; align-items:center; gap:12px; margin: 18px 0; }
+    .divider::before, .divider::after { content:''; flex:1; height:1px; background: var(--color-border-tertiary); }
+    .divider span { font-size:11px; color: var(--color-text-tertiary); font-weight:700; letter-spacing:0.05em; text-transform:uppercase; }
+
+    .err-box { margin-top: 12px; padding: 11px 14px; background:#FFE8F2; border-radius:12px; color:#A0164A;
+      font-size:13px; font-weight:500; border:1px solid rgba(255,77,141,0.2); border-left:3px solid #FF4D8D; }
+    .ok-box { margin-top: 12px; padding: 11px 14px; background:#DCFDF4; border-radius:12px; color:#006A4E;
+      font-size:13px; font-weight:500; border:1px solid rgba(0,200,150,0.2); border-left:3px solid #00C896; }
+    .info-box { margin-bottom: 14px; padding: 11px 14px; background:#FFF0D6; border-radius:12px; color:#7A4400;
+      font-size:12.5px; font-weight:500; border:1px solid rgba(255,149,0,0.2); border-left:3px solid #FF9500; line-height:1.5; }
+
+    .foot-row { display:flex; align-items:center; justify-content:space-between; margin-top:14px; }
+    .hidden { display:none !important; }
+    .spin { animation: spin 0.8s linear infinite; }
+
+    .verify-icon { width:64px; height:64px; border-radius:20px; margin:0 auto 18px; background: linear-gradient(135deg,#EDE8FF,#DDD4FF);
+      display:flex; align-items:center; justify-content:center; font-size:28px; color:#6F42FF; }
+    .center { text-align:center; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <div class="brand-icon"><i class="ti ti-bolt" style="font-size:19px;color:#fff" aria-hidden="true"></i></div>
+      <span class="brand-text">FocusSpace</span>
+    </div>
+
+    <div class="auth-card">
+
+      <!-- ── Sign in / Sign up ── -->
+      <div id="panel-auth">
+        <div class="tabs" role="tablist">
+          <button class="tab-btn active" id="tab-signin" role="tab" aria-selected="true">Sign in</button>
+          <button class="tab-btn" id="tab-signup" role="tab" aria-selected="false">Create account</button>
+        </div>
+
+        <h1 class="card-title" id="auth-title">Welcome back</h1>
+        <p class="card-sub" id="auth-sub">Sign in to get back to your focus space.</p>
+
+        <button class="btn-google" id="btn-google" type="button">
+          <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+            <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/>
+            <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.9v2.33A9 9 0 0 0 9 18z"/>
+            <path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.16.28-1.7V4.97H.9A9 9 0 0 0 0 9c0 1.45.35 2.83.9 4.03l3.05-2.33z"/>
+            <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .9 4.97l3.05 2.33C4.66 5.17 6.65 3.58 9 3.58z"/>
+          </svg>
+          Continue with Google
+        </button>
+
+        <div class="divider"><span>or</span></div>
+
+        <form id="form-auth" novalidate>
+          <div class="field" id="field-name" style="display:none">
+            <label class="lbl" for="in-name">Full name</label>
+            <input class="inp" id="in-name" type="text" autocomplete="name" placeholder="Your name"/>
+          </div>
+          <div class="field">
+            <label class="lbl" for="in-email">Email</label>
+            <input class="inp" id="in-email" type="email" autocomplete="email" placeholder="you@example.com" required/>
+          </div>
+          <div class="field">
+            <label class="lbl" for="in-password">Password</label>
+            <div class="pw-wrap">
+              <input class="inp" id="in-password" type="password" autocomplete="current-password" placeholder="••••••••" required minlength="8" style="padding-right:42px"/>
+              <button type="button" class="pw-toggle" id="pw-toggle" tabindex="-1" aria-label="Show password"><i class="ti ti-eye" aria-hidden="true"></i></button>
+            </div>
+          </div>
+
+          <div class="foot-row" id="row-forgot">
+            <span></span>
+            <button type="button" class="btn-text" id="btn-forgot">Forgot password?</button>
+          </div>
+
+          <div style="margin-top:16px">
+            <button class="btn-primary" id="btn-submit" type="submit">
+              <span id="submit-label">Sign in</span>
+            </button>
+          </div>
+        </form>
+
+        <div id="auth-err" class="err-box hidden"></div>
+        <div id="auth-ok" class="ok-box hidden"></div>
+      </div>
+
+      <!-- ── Verification pending ── -->
+      <div id="panel-verify" class="hidden center">
+        <div class="verify-icon"><i class="ti ti-mail-opened" aria-hidden="true"></i></div>
+        <h1 class="card-title">Check your inbox</h1>
+        <p class="card-sub">We sent a verification link to <strong id="verify-email"></strong>. Click it, then come back here.</p>
+        <div class="info-box" style="text-align:left">
+          <i class="ti ti-info-circle" aria-hidden="true"></i>
+          Don't see it in a minute or two? Check your <strong>Spam</strong>/<strong>Promotions</strong> folder and mark it "Not spam" — that also helps future emails from us land in your inbox.
+        </div>
+        <button class="btn-primary" id="btn-ive-verified" type="button" style="margin-bottom:10px">I've verified — continue</button>
+        <button class="btn-text" id="btn-resend">Resend verification email</button>
+        <div id="verify-err" class="err-box hidden"></div>
+        <div id="verify-ok" class="ok-box hidden"></div>
+        <div style="margin-top:14px">
+          <button class="btn-text" id="btn-back-signin">Use a different account</button>
+        </div>
+      </div>
+
+      <!-- ── Forgot password ── -->
+      <div id="panel-forgot" class="hidden">
+        <h1 class="card-title">Reset your password</h1>
+        <p class="card-sub">Enter your account email and we'll send you a reset link.</p>
+        <form id="form-forgot" novalidate>
+          <div class="field">
+            <label class="lbl" for="fp-email">Email</label>
+            <input class="inp" id="fp-email" type="email" autocomplete="email" placeholder="you@example.com" required/>
+          </div>
+          <button class="btn-primary" id="btn-send-reset" type="submit">Send reset link</button>
+        </form>
+        <div id="forgot-err" class="err-box hidden"></div>
+        <div id="forgot-ok" class="ok-box hidden"></div>
+        <div style="margin-top:14px;text-align:center">
+          <button class="btn-text" id="btn-forgot-back">Back to sign in</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script type="module">
+    import {
+      auth, googleProvider, db,
+      onAuthStateChanged, signInWithPopup, signInWithEmailAndPassword,
+      createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail,
+      updateProfile, isVerified, syncUserProfile,
+    } from "./assets/firebase-init.js";
+
+    const params = new URLSearchParams(location.search);
+    const nextPage = params.get("next") || "index.html";
+    const wantsVerifyPanel = params.get("verify") === "1";
+
+    const $ = (id) => document.getElementById(id);
+    const panelAuth = $("panel-auth"), panelVerify = $("panel-verify"), panelForgot = $("panel-forgot");
+    const tabSignin = $("tab-signin"), tabSignup = $("tab-signup");
+    const fieldName = $("field-name"), rowForgot = $("row-forgot");
+    const authTitle = $("auth-title"), authSub = $("auth-sub"), submitLabel = $("submit-label");
+    const btnSubmit = $("btn-submit"), btnGoogle = $("btn-google");
+    const authErr = $("auth-err"), authOk = $("auth-ok");
+    const verifyErr = $("verify-err"), verifyOk = $("verify-ok");
+    const forgotErr = $("forgot-err"), forgotOk = $("forgot-ok");
+
+    let mode = "signin"; // "signin" | "signup"
+    let pendingUserForVerify = null;
+    let resendCooldownUntil = 0;
+
+    function show(panel) {
+      [panelAuth, panelVerify, panelForgot].forEach(p => p.classList.add("hidden"));
+      panel.classList.remove("hidden");
+    }
+    function clearMsgs() {
+      [authErr, authOk, verifyErr, verifyOk, forgotErr, forgotOk].forEach(el => { el.classList.add("hidden"); el.textContent = ""; });
+    }
+    function setErr(el, msg) { clearMsgs(); el.textContent = msg; el.classList.remove("hidden"); }
+    function setOk(el, msg) { clearMsgs(); el.textContent = msg; el.classList.remove("hidden"); }
+
+    function friendlyAuthError(err) {
+      const code = err?.code || "";
+      const map = {
+        "auth/invalid-email": "That email address doesn't look right.",
+        "auth/user-disabled": "This account has been disabled.",
+        "auth/user-not-found": "No account found with that email.",
+        "auth/wrong-password": "Incorrect password.",
+        "auth/invalid-credential": "Incorrect email or password.",
+        "auth/email-already-in-use": "An account with this email already exists — try signing in instead.",
+        "auth/weak-password": "Please use at least 8 characters, mixing letters and numbers.",
+        "auth/too-many-requests": "Too many attempts. Please wait a bit and try again.",
+        "auth/popup-closed-by-user": "Google sign-in was closed before finishing.",
+        "auth/network-request-failed": "Network error — check your connection and try again.",
+      };
+      return map[code] || "Something went wrong. Please try again.";
+    }
+
+    function setMode(next) {
+      mode = next;
+      clearMsgs();
+      const isSignup = mode === "signup";
+      tabSignin.classList.toggle("active", !isSignup);
+      tabSignin.setAttribute("aria-selected", String(!isSignup));
+      tabSignup.classList.toggle("active", isSignup);
+      tabSignup.setAttribute("aria-selected", String(isSignup));
+      fieldName.style.display = isSignup ? "block" : "none";
+      rowForgot.style.display = isSignup ? "none" : "flex";
+      authTitle.textContent = isSignup ? "Create your account" : "Welcome back";
+      authSub.textContent = isSignup
+        ? "Set a password — we'll send a verification link to confirm it's really you."
+        : "Sign in to get back to your focus space.";
+      submitLabel.textContent = isSignup ? "Create account" : "Sign in";
+      $("in-password").setAttribute("autocomplete", isSignup ? "new-password" : "current-password");
+    }
+    tabSignin.addEventListener("click", () => setMode("signin"));
+    tabSignup.addEventListener("click", () => setMode("signup"));
+
+    $("pw-toggle").addEventListener("click", () => {
+      const inp = $("in-password");
+      const show = inp.type === "password";
+      inp.type = show ? "text" : "password";
+      $("pw-toggle").innerHTML = `<i class="ti ${show ? "ti-eye-off" : "ti-eye"}" aria-hidden="true"></i>`;
+    });
+
+    function setBusy(btn, busy, label) {
+      btn.disabled = busy;
+      if (busy) btn.dataset.prevHtml = btn.innerHTML;
+      btn.innerHTML = busy
+        ? `<i class="ti ti-loader-2 spin" aria-hidden="true"></i> ${label || "Please wait…"}`
+        : btn.dataset.prevHtml || btn.innerHTML;
+    }
+
+    async function goToVerifyPanel(user) {
+      pendingUserForVerify = user;
+      $("verify-email").textContent = user.email || "";
+      show(panelVerify);
+    }
+
+    // ── Google sign-in ──
+    btnGoogle.addEventListener("click", async () => {
+      clearMsgs();
+      setBusy(btnGoogle, true, "Connecting…");
+      try {
+        const cred = await signInWithPopup(auth, googleProvider);
+        await syncUserProfile(cred.user);
+        location.href = nextPage; // Google identities are pre-verified.
+      } catch (err) {
+        console.error("[google sign-in]", err);
+        if (err.code !== "auth/popup-closed-by-user") {
+          setErr(authErr, friendlyAuthError(err));
+        }
+      } finally {
+        setBusy(btnGoogle, false);
+      }
+    });
+
+    // ── Email/password submit ──
+    $("form-auth").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      clearMsgs();
+      const email = $("in-email").value.trim();
+      const password = $("in-password").value;
+      const name = $("in-name").value.trim();
+
+      if (!email || !password) { setErr(authErr, "Please fill in both fields."); return; }
+      if (mode === "signup" && password.length < 8) { setErr(authErr, "Password must be at least 8 characters."); return; }
+
+      setBusy(btnSubmit, true, mode === "signup" ? "Creating account…" : "Signing in…");
+      try {
+        if (mode === "signup") {
+          const cred = await createUserWithEmailAndPassword(auth, email, password);
+          if (name) await updateProfile(cred.user, { displayName: name });
+          await syncUserProfile(cred.user);
+          await sendEmailVerification(cred.user);
+          resendCooldownUntil = Date.now() + 60_000;
+          await goToVerifyPanel(cred.user);
+        } else {
+          const cred = await signInWithEmailAndPassword(auth, email, password);
+          if (!isVerified(cred.user)) {
+            await goToVerifyPanel(cred.user);
+          } else {
+            await syncUserProfile(cred.user);
+            location.href = nextPage;
+          }
+        }
+      } catch (err) {
+        console.error("[email auth]", err);
+        setErr(authErr, friendlyAuthError(err));
+      } finally {
+        setBusy(btnSubmit, false);
+      }
+    });
+
+    // ── Verify panel actions ──
+    $("btn-ive-verified").addEventListener("click", async () => {
+      clearMsgs();
+      const btn = $("btn-ive-verified");
+      setBusy(btn, true, "Checking…");
+      try {
+        await auth.currentUser?.reload();
+        const user = auth.currentUser;
+        if (user && isVerified(user)) {
+          await syncUserProfile(user);
+          location.href = nextPage;
+        } else {
+          setErr(verifyErr, "Still not verified — click the link in the email first, then try again.");
+        }
+      } catch (err) {
+        console.error("[reload check]", err);
+        setErr(verifyErr, "Couldn't check verification status. Please try again.");
+      } finally {
+        setBusy(btn, false);
+      }
+    });
+
+    $("btn-resend").addEventListener("click", async () => {
+      clearMsgs();
+      const user = auth.currentUser || pendingUserForVerify;
+      if (!user) return;
+      if (Date.now() < resendCooldownUntil) {
+        const secs = Math.ceil((resendCooldownUntil - Date.now()) / 1000);
+        setErr(verifyErr, `Please wait ${secs}s before requesting another email — sending too many too fast is a common reason they land in spam.`);
+        return;
+      }
+      try {
+        await sendEmailVerification(user);
+        resendCooldownUntil = Date.now() + 60_000;
+        setOk(verifyOk, "Verification email sent again. Check Spam/Promotions if it doesn't show up shortly.");
+      } catch (err) {
+        console.error("[resend verify]", err);
+        setErr(verifyErr, friendlyAuthError(err));
+      }
+    });
+
+    $("btn-back-signin").addEventListener("click", async () => {
+      const { signOut } = await import("./assets/firebase-init.js");
+      await signOut(auth).catch(() => {});
+      pendingUserForVerify = null;
+      clearMsgs();
+      setMode("signin");
+      show(panelAuth);
+    });
+
+    // ── Forgot password ──
+    $("btn-forgot").addEventListener("click", () => {
+      clearMsgs();
+      $("fp-email").value = $("in-email").value.trim();
+      show(panelForgot);
+    });
+    $("btn-forgot-back").addEventListener("click", () => { clearMsgs(); show(panelAuth); });
+    $("form-forgot").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      clearMsgs();
+      const email = $("fp-email").value.trim();
+      if (!email) return;
+      const btn = $("btn-send-reset");
+      setBusy(btn, true, "Sending…");
+      try {
+        await sendPasswordResetEmail(auth, email);
+        setOk(forgotOk, "If an account exists for that email, a reset link is on its way. Check Spam/Promotions too.");
+      } catch (err) {
+        // Don't reveal whether the email exists — same generic message either way,
+        // except for a clearly malformed address.
+        if (err.code === "auth/invalid-email") {
+          setErr(forgotErr, "That email address doesn't look right.");
+        } else {
+          setOk(forgotOk, "If an account exists for that email, a reset link is on its way. Check Spam/Promotions too.");
+        }
+      } finally {
+        setBusy(btn, false);
+      }
+    });
+
+    // ── Already signed in? Skip straight through (unless still unverified). ──
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        if (wantsVerifyPanel) show(panelAuth); // nothing to verify without a user
+        return;
+      }
+      if (isVerified(user)) {
+        location.href = nextPage;
+      } else if (wantsVerifyPanel || panelAuth.classList.contains("hidden") === false) {
+        goToVerifyPanel(user);
+      }
+    });
+
+    if (wantsVerifyPanel && auth.currentUser) {
+      goToVerifyPanel(auth.currentUser);
+    }
+  </script>
+</body>
+</html>
