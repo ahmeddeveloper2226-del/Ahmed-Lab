@@ -1,0 +1,42 @@
+# --- Web framework ---
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+pydantic==2.9.2
+pydantic[email]==2.9.2
+pydantic-settings==2.5.2
+
+# --- Firebase / Google Cloud ---
+firebase-admin==6.5.0
+google-cloud-firestore==2.18.0
+
+# --- AI (Groq — OpenAI-compatible chat.completions, used for study plan,
+# تراكم chat, and subject Q&A) ---
+groq==1.7.0
+
+# --- Scraping (Scrapling is the ONLY scraper: adaptive parsing + fetchers) ---
+# `fetchers` extra pulls in curl_cffi (the Fetcher class) and
+# Playwright/Patchright (StealthyFetcher). After installing, run
+# `scrapling install` once to download the browsers + fingerprint deps.
+scrapling[fetchers]==0.4.15
+tenacity==9.0.0
+
+# --- Rate limiting / security ---
+slowapi==0.1.9
+redis==5.0.8
+python-jose[cryptography]==3.3.0
+itsdangerous==2.2.0
+
+# --- Scheduling ---
+apscheduler==3.10.4
+
+# --- Utilities ---
+python-dateutil==2.9.0.post0
+orjson>=3.11.8
+structlog==24.4.0
+tzdata==2024.2
+
+# --- Testing ---
+pytest==8.3.3
+pytest-asyncio==0.24.0
+httpx[cli]==0.27.2

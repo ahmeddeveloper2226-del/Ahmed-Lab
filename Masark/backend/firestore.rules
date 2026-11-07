@@ -1,0 +1,95 @@
+rules_version = '2';
+
+// Masark Firestore security rules.
+//
+// Model: the FastAPI backend uses the Firebase Admin SDK, which BYPASSES
+// these rules entirely — so all business logic (scraping, AI, progress
+// aggregation) is safely enforced server-side regardless of what these
+// rules allow. These rules exist as the second line of defense for the
+// direct client-SDK reads the frontend does for live updates (home tab
+// charts, lecture lists) and for the small set of direct client writes
+// (toggling a lecture's is_completed/homework_done, theme/language
+// preference) that don't need server validation.
+//
+// Golden rule: a signed-in user can only ever touch documents nested
+// under their own users/{uid} document; nothing is ever globally
+// readable or writable by end users.
+
+function isSignedIn() {
+  return request.auth != null;
+}
+
+function isOwner(uid) {
+  return isSignedIn() && request.auth.uid == uid;
+}
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      // Full-document writes (onboarding, profile edits) go through the
+      // backend, which validates with Pydantic first. We still allow the
+      // client to patch a small, safe allow-list directly for snappy UI
+      // (theme/language toggle) without a round trip.
+      allow create: if false; // backend only
+      allow update: if isOwner(uid)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['theme', 'language', 'fcm_tokens']);
+      allow delete: if false;
+
+      match /subjects/{enrollmentId} {
+        allow read: if isOwner(uid);
+        allow write: if false; // backend only (drives scraping + aggregates)
+
+        match /lectures/{lectureId} {
+          allow read: if isOwner(uid);
+          // Students may toggle their own completion/homework status
+          // directly for a snappy UI; nothing else about a lecture doc
+          // may change from the client.
+          allow update: if isOwner(uid)
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['is_completed', 'homework_done', 'completed_at']);
+          allow create, delete: if false; // backend only (from scraping)
+        }
+      }
+
+      match /study_plans/{weekStart} {
+        allow read: if isOwner(uid);
+        allow update: if isOwner(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tasks']);
+        allow create, delete: if false; // backend/AI only
+      }
+
+      match /procrastination_chat/{messageId} {
+        allow read: if isOwner(uid);
+        allow write: if false; // backend only (keeps AI history tamper-proof)
+      }
+
+      match /subject_chat/{subjectSlug}/messages/{messageId} {
+        allow read: if isOwner(uid);
+        allow write: if false; // backend only
+      }
+
+      match /notifications_log/{logId} {
+        allow read: if isOwner(uid);
+        allow write: if false; // backend only
+      }
+    }
+
+    // Shared scrape cache and platform suggestions: never exposed to
+    // clients at all — read/written exclusively by the backend via the
+    // Admin SDK, which bypasses these rules.
+    match /platform_cache/{document=**} {
+      allow read, write: if false;
+    }
+    match /platform_suggestions/{document=**} {
+      allow read, write: if false;
+    }
+
+    // Deny everything else by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
