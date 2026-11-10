@@ -1,4 +1,5 @@
 import logging
+import secrets
 
 import firebase_admin
 from firebase_admin import auth as firebase_auth, credentials
@@ -102,7 +103,10 @@ async def verify_admin_panel_secret(x_admin_secret: str = Header(default="")) ->
     if this panel is ever exposed beyond your own machine, this should be
     replaced with real per-person authentication instead of a shared secret.
     """
-    if x_admin_secret != settings.admin_panel_secret:
+    # An unset secret must never authenticate (an empty header would match it).
+    if not settings.admin_panel_secret or not secrets.compare_digest(
+        x_admin_secret.encode("utf-8"), settings.admin_panel_secret.encode("utf-8")
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Incorrect admin password.",
