@@ -1,32 +1,3 @@
-"""
-Driver-facing REST endpoints. All require role=driver Firebase claim.
-
-Endpoints:
-  GET    /driver/orders/offers                  — delivery groups currently OFFERED to this driver
-  POST   /driver/orders/group/{group_id}/accept  — accept an offered delivery group
-  POST   /driver/orders/group/{group_id}/decline — decline an offered delivery group
-  PATCH  /driver/orders/{id}/status              — move order through the delivery lifecycle
-  POST   /driver/location                        — publish live GPS to Redis + update DB snapshot
-  PATCH  /driver/availability                    — toggle available/unavailable, update geo index
-
-There is deliberately NO "browse nearby orders" endpoint. Drivers never pick
-an order off a list — driver_assignment_worker finds the nearest driver to
-each delivery zone (see geo_utils.cluster_shops_by_zone) and OFFERS it to
-them; /orders/offers only ever shows offers the system already decided to
-make to THIS driver, which he then accepts or declines.
-
-Security:
-  get_current_driver() dependency enforces role=driver claim AND the existence
-  of a Driver DB row. A customer JWT can never access these endpoints even if
-  they know the URL. See dependencies.py for the full explanation.
-
-Concurrency:
-  accept_group uses SELECT ... FOR UPDATE to prevent two conflicting writes
-  (a concurrent decline, or the assignment worker's expiry sweep) from racing
-  the accept. Without this, an offer could be accepted and reclaimed for
-  timing out in the same instant, leaving the group in an inconsistent state.
-"""
-
 import json
 import logging
 import uuid
@@ -52,6 +23,8 @@ from ..redis_client import redis_client
 from ..services import delivery_service
 from ..schemas.driver_schemas import (
     AvailabilityUpdate,
+    DeliveryFailureReport,
+    DeliveryStageUpdate,
     DriverOrderItemResponse,
     DriverOrderResponse,
     DriverStatusUpdate,
