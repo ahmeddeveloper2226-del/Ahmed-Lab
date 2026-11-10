@@ -1,25 +1,4 @@
-"""
-Per-user data sources for the analysis pipeline.
-
-Each user's dataset (see firestore_db.py's dataset methods and the
-/datasets/* endpoints in main.py) is one of:
-
-  - "external_db": the user's own Postgres or MySQL database. We connect
-    live, read-only, using SQLAlchemy — same query-generation/validation
-    pipeline as before, just pointed at the user's credentials instead of
-    one shared app-wide database.
-
-  - "file": a CSV/Excel file the user uploaded. Its rows are stored in
-    Firestore (chunked across subcollection docs to stay under the 1MB
-    per-document limit). At analysis time we reconstruct the DataFrame and
-    load it into a throwaway in-memory SQLite database, so the rest of the
-    pipeline (SQL generation via the LLM, security.validate_sql, etc.) can
-    stay exactly as it was — it always just sees "a database with a schema
-    it can run SELECT against."
-
-Both kinds implement the same three methods pipeline.py needs:
-get_schema(), get_latest_date(table, column), execute_sql(query).
-"""
+import re
 from typing import Optional
 
 import pandas as pd
@@ -32,6 +11,29 @@ SUPPORTED_DB_TYPES = ("postgres", "mysql")
 
 class DataSourceError(Exception):
     pass
+
+_FORBIDDEN_SQL = re.compile(
+    r"\b(insert|update|delete|drop|alter|create|truncate|grant|revoke|merge|"
+    r"replace|attach|detach|pragma|vacuum|copy|call|exec|execute|into)\b",
+    re.IGNORECASE,
+)
+
+
+def _assert_read_only(query: str) -> str:
+    """Allow a single SELECT/WITH statement only. Model-generated SQL is
+    untrusted, so reject anything that could write, alter schema, or chain
+    statements. Defense in depth: external DBs should also use a read-only
+    database user."""
+    stripped = re.sub(r"--[^\n]*|/\*.*?\*/", " ", query, flags=re.S).strip().rstrip(";").strip()
+    if not stripped:
+        raise DataSourceError("Empty SQL query.")
+    if ";" in stripped:
+        raise DataSourceError("Only a single SQL statement is allowed.")
+    if not re.match(r"(?is)^(select|with)\b", stripped):
+        raise DataSourceError("Only read-only SELECT queries are allowed.")
+    if _FORBIDDEN_SQL.search(stripped):
+        raise DataSourceError("Query contains a keyword that is not allowed in read-only mode.")
+    return stripped
 
 
 class SqlAlchemyDataSource:
@@ -73,6 +75,7 @@ class SqlAlchemyDataSource:
             return row[0] if row else None
 
     def execute_sql(self, query: str) -> pd.DataFrame:
+        query = _assert_read_only(query)
         try:
             with self._engine.connect() as conn:
                 return pd.read_sql_query(sa.text(query), conn)
@@ -133,6 +136,10 @@ def build_file_datasource(rows: list[dict]) -> SqlAlchemyDataSource:
     throwaway in-memory SQLite database as a single table named `data`."""
     if not rows:
         raise DataSourceError("This dataset has no rows.")
+    df = pd.DataFrame(rows)
+    engine = sa.create_engine("sqlite://")
+    df.to_sql("data", engine, index=False, if_exists="replace")
+    return SqlAlchemyDataSource(engine, dialect_note="sqlite")
     df = pd.DataFrame(rows)
     engine = sa.create_engine("sqlite://")
     df.to_sql("data", engine, index=False, if_exists="replace")
