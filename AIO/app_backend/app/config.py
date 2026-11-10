@@ -109,7 +109,7 @@ class Settings(BaseSettings):
     # on the public internet to multiple people — at that point this should
     # go back to real per-person authentication. Override via the
     # ADMIN_PANEL_SECRET environment variable before deploying anywhere.
-    admin_panel_secret: str = "2211"
+    admin_panel_secret: str = ""
 
     # --- Realtime chat/calls/location -----------------------------------
     # Local disk path for voice-message audio storage. See
@@ -147,7 +147,7 @@ class Settings(BaseSettings):
     # the /ai/chat endpoint returns a clear 503 rather than crashing if
     # this isn't set, so a fresh deployment without it configured yet
     # doesn't take the rest of the API down.
-    anthropic_api_key: str = "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"
+    anthropic_api_key: str = ""
     # Haiku, not Sonnet — this task (parse an order, call a search tool,
     # ask for clarification, call add_to_cart) doesn't need Sonnet-level
     # reasoning, and Haiku costs a fraction per token. Bump back to
